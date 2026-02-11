@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #0F1117;
+  --bg-secondary: #1A1D2E;
+  --bg-tertiary: #252836;
+  --text-primary: #E0E0E0;
+  --text-secondary: #888;
+  --accent-purple: #9945FF;
+  --accent-teal: #14F195;
+  --severity-critical: #FF4444;
+  --severity-high: #FF4444;
+  --severity-medium: #FFA500;
+  --severity-low: #00C853;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+code, pre {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
