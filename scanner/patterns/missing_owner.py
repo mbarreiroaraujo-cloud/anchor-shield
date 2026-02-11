@@ -100,7 +100,7 @@ class MissingOwnerPattern(VulnerabilityPattern):
                         impact={
                             "attack_cost": "< 0.01 SOL",
                             "exploitability": "High — most common Solana vulnerability",
-                            "breach_cost_context": "Missing owner checks: #1 audit finding. See Mango ($114M).",
+                            "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits.",
                         },
                         anchor_versions_affected="All versions (developer-side pattern)",
                         ecosystem_recommendations=[
