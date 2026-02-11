@@ -1,0 +1,67 @@
+{
+  "success": true,
+  "target": "./tests/test_patterns/vulnerable/",
+  "scan_report": {
+    "target": "./tests/test_patterns/vulnerable/",
+    "scan_time_seconds": 0.02,
+    "files_scanned": 6,
+    "patterns_checked": 6,
+    "anchor_version": null,
+    "security_score": "F",
+    "summary": {
+      "total": 11,
+      "by_severity": {
+        "Critical": 0,
+        "High": 5,
+        "Medium": 6,
+        "Low": 0
+      },
+      "by_pattern": {
+        "ANCHOR-001": 2,
+        "ANCHOR-004": 3,
+        "ANCHOR-006": 3,
+        "ANCHOR-002": 1,
+        "ANCHOR-005": 1,
+        "ANCHOR-003": 1
+      }
+    },
+    "findings": []
+  },
+  "attestation": {
+    "protocol": "anchor-shield",
+    "version": "0.1.0",
+    "network": "devnet",
+    "authority": "2JygdzbiNTxf4XctPpfS1EWoDKm1b7f4ii8nycvRW5DZ",
+    "transaction": "5KtP...demo_signature...xYz",
+    "target": "./tests/test_patterns/vulnerable/",
+    "target_hash": "b15ca0290513f14665925c70f6568148214427bceb90fe88d6ec495216893621",
+    "timestamp": 1770853873,
+    "security_score": 20,
+    "security_grade": "F",
+    "patterns_checked": 6,
+    "issues_found": 11,
+    "severity_breakdown": {
+      "Critical": 0,
+      "High": 5,
+      "Medium": 6,
+      "Low": 0
+    },
+    "files_scanned": 6,
+    "scan_time": 0.02,
+    "report_hash": "900aab7fb51d37179ed1f8cc5b145817822bfb6c13b053c2ee0932934ef7e704",
+    "explorer_url": "https://explorer.solana.com/tx/5KtP...demo_signature...xYz?cluster=devnet",
+    "memo": "ASHIELD|0.1.0|b15ca0290513f146|s=20|i=11|p=6|sev=C0H5M6L0|h=900aab7fb51d37179ed1f8cc5b145817"
+  },
+  "steps": [
+    {
+      "step": "scan",
+      "status": "completed",
+      "findings": 11
+    },
+    {
+      "step": "attest",
+      "status": "completed",
+      "tx_signature": "5KtP...demo_signature...xYz"
+    }
+  ]
+}

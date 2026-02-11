@@ -1,0 +1,357 @@
+{
+  "success": true,
+  "target": "./tests/test_patterns/vulnerable/",
+  "scan_report": {
+    "target": "/home/user/anchor-shield/tests/test_patterns/vulnerable",
+    "scan_time_seconds": 0.01,
+    "files_scanned": 6,
+    "patterns_checked": 6,
+    "anchor_version": null,
+    "security_score": "F",
+    "summary": {
+      "total": 11,
+      "by_severity": {
+        "Critical": 0,
+        "High": 5,
+        "Medium": 6,
+        "Low": 0
+      },
+      "by_pattern": {
+        "ANCHOR-001": 2,
+        "ANCHOR-002": 1,
+        "ANCHOR-005": 1,
+        "ANCHOR-003": 1,
+        "ANCHOR-004": 3,
+        "ANCHOR-006": 3
+      }
+    },
+    "findings": [
+      {
+        "id": "ANCHOR-001",
+        "name": "init_if_needed Incomplete Field Validation",
+        "severity": "High",
+        "file": "duplicate_mutable_init.rs",
+        "line": 22,
+        "description": "Token account accepted via init_if_needed without validation of delegate, close_authority fields.",
+        "root_cause": "In Anchor's constraint code generation, when init_if_needed encounters an already-existing Token/AssociatedToken account, it calls from_account_info_unchecked and only validates mint, owner, and token_program. Fields like delegate, close_authority, state, and delegated_amount are not checked, allowing an attacker to pass a pre-created account with malicious values for these fields.",
+        "exploit_scenario": "1. Attacker creates a token account with delegate=ATTACKER and close_authority=ATTACKER\n2. Attacker transfers ownership so the account matches the expected owner/mint\n3. Victim's program accepts the account via init_if_needed (account already exists, so init is skipped)\n4. Anchor validates mint, owner, token_program \u2014 all pass\n5. delegate and close_authority are NOT checked \u2014 attacker retains control\n6. Attacker uses delegated transfer to drain funds, or close_authority to force-close the account",
+        "fix_recommendation": "Add explicit constraint checks for fields not validated by init_if_needed:\n  #[account(\n    init_if_needed,\n    token::mint = mint,\n    token::authority = authority,\n    constraint = token_account.delegate.is_none(),\n    constraint = token_account.close_authority.is_none(),\n  )]\nAlternatively, use plain `init` instead of `init_if_needed` if the account should always be newly created.",
+        "code_snippet": "      19 |     #[account(mut)]\n      20 |     pub payer: Signer<'info>,\n      21 | \n>>>   22 |     #[account(\n      23 |         init_if_needed,\n      24 |         payer = payer,\n      25 |         token::mint = mint,",
+        "before_after_state": {
+          "before": "Token account: owner=victim, balance=1000, delegate=None, close_authority=None",
+          "after": "Token account: owner=victim, balance=1000, delegate=ATTACKER, close_authority=ATTACKER (attacker can drain via delegated transfer or force-close)",
+          "damage": "Attacker can drain token balance via delegated transfer or force-close the account, causing permanent loss."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL (single transaction to pre-create account)",
+          "exploitability": "High \u2014 single transaction, no special setup required",
+          "breach_cost_context": "Incomplete field validation in token account deserialization is a high-impact pattern. Programs accepting pre-created token accounts via init_if_needed risk unauthorized delegate or close_authority retention by attackers."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "0.25.0 - 0.30.x (init_if_needed introduced in 0.25)",
+        "ecosystem_recommendations": [
+          "Add explicit constraint checks: constraint = account.delegate.is_none(), constraint = account.close_authority.is_none()",
+          "Consider using plain init instead of init_if_needed where possible",
+          "Anchor team should add compile-time warnings for this pattern"
+        ]
+      },
+      {
+        "id": "ANCHOR-002",
+        "name": "Duplicate Mutable Account Bypass",
+        "severity": "Medium",
+        "file": "duplicate_mutable_init.rs",
+        "line": 28,
+        "description": "In struct TransferWithInit: init_if_needed field 'destination' (TokenAccount) coexists with mutable field 'source' (TokenAccount). The init_if_needed field is excluded from Anchor's duplicate mutable account check.",
+        "root_cause": "In Anchor's try_accounts code generation, the duplicate mutable account check filters out fields where constraints.init.is_some(). init_if_needed accounts are excluded from duplicate detection. If the account already exists, it behaves as a regular mutable account without duplicate protection.",
+        "exploit_scenario": "1. Program has init_if_needed field A and mutable field B (same type)\n2. Attacker passes SAME account for both A and B\n3. Anchor's duplicate check skips A (has init constraint)\n4. Account already initialized \u2014 init_if_needed does nothing\n5. Both A and B reference the same account\n6. Instruction body double-mutates, causing state corruption",
+        "fix_recommendation": "Add an explicit duplicate account check in the instruction body:\n  require!(init_field.key() != mut_field.key(), CustomError::DuplicateAccount);\n\nOr use plain `init` instead, which is included in the duplicate check.",
+        "code_snippet": "      25 |         token::mint = mint,\n      26 |         token::authority = authority,\n      27 |     )]\n>>>   28 |     pub destination: Account<'info, TokenAccount>,\n      29 | \n      30 |     #[account(mut)]\n      31 |     pub source: Account<'info, TokenAccount>,",
+        "before_after_state": {
+          "before": "Account X passed as both fields. State: balance=1000",
+          "after": "Account X mutated twice. State: balance=0 (double withdrawal)",
+          "damage": "Double-mutation leads to accounting errors or fund extraction."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL (single transaction)",
+          "exploitability": "Medium \u2014 requires compatible types",
+          "breach_cost_context": "Duplicate account attacks: $100K-$5M exposure."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "0.25.0 - 0.30.x",
+        "ecosystem_recommendations": [
+          "Add explicit duplicate check: require!(a.key() != b.key())",
+          "Prefer plain init over init_if_needed"
+        ]
+      },
+      {
+        "id": "ANCHOR-001",
+        "name": "init_if_needed Incomplete Field Validation",
+        "severity": "High",
+        "file": "init_if_needed_no_delegate_check.rs",
+        "line": 21,
+        "description": "Token account accepted via init_if_needed without validation of delegate, close_authority fields.",
+        "root_cause": "In Anchor's constraint code generation, when init_if_needed encounters an already-existing Token/AssociatedToken account, it calls from_account_info_unchecked and only validates mint, owner, and token_program. Fields like delegate, close_authority, state, and delegated_amount are not checked, allowing an attacker to pass a pre-created account with malicious values for these fields.",
+        "exploit_scenario": "1. Attacker creates a token account with delegate=ATTACKER and close_authority=ATTACKER\n2. Attacker transfers ownership so the account matches the expected owner/mint\n3. Victim's program accepts the account via init_if_needed (account already exists, so init is skipped)\n4. Anchor validates mint, owner, token_program \u2014 all pass\n5. delegate and close_authority are NOT checked \u2014 attacker retains control\n6. Attacker uses delegated transfer to drain funds, or close_authority to force-close the account",
+        "fix_recommendation": "Add explicit constraint checks for fields not validated by init_if_needed:\n  #[account(\n    init_if_needed,\n    token::mint = mint,\n    token::authority = authority,\n    constraint = token_account.delegate.is_none(),\n    constraint = token_account.close_authority.is_none(),\n  )]\nAlternatively, use plain `init` instead of `init_if_needed` if the account should always be newly created.",
+        "code_snippet": "      18 |     #[account(mut)]\n      19 |     pub payer: Signer<'info>,\n      20 | \n>>>   21 |     #[account(\n      22 |         init_if_needed,\n      23 |         payer = payer,\n      24 |         token::mint = mint,",
+        "before_after_state": {
+          "before": "Token account: owner=victim, balance=1000, delegate=None, close_authority=None",
+          "after": "Token account: owner=victim, balance=1000, delegate=ATTACKER, close_authority=ATTACKER (attacker can drain via delegated transfer or force-close)",
+          "damage": "Attacker can drain token balance via delegated transfer or force-close the account, causing permanent loss."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL (single transaction to pre-create account)",
+          "exploitability": "High \u2014 single transaction, no special setup required",
+          "breach_cost_context": "Incomplete field validation in token account deserialization is a high-impact pattern. Programs accepting pre-created token accounts via init_if_needed risk unauthorized delegate or close_authority retention by attackers."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "0.25.0 - 0.30.x (init_if_needed introduced in 0.25)",
+        "ecosystem_recommendations": [
+          "Add explicit constraint checks: constraint = account.delegate.is_none(), constraint = account.close_authority.is_none()",
+          "Consider using plain init instead of init_if_needed where possible",
+          "Anchor team should add compile-time warnings for this pattern"
+        ]
+      },
+      {
+        "id": "ANCHOR-005",
+        "name": "Close + Reinit Lifecycle Attack",
+        "severity": "Medium",
+        "file": "close_reinit_same_type.rs",
+        "line": 31,
+        "description": "Account type 'Vault' is used with close (in CloseVault.vault, line 44) and init_if_needed (in CreateVault.vault, line 31). Attacker can close and revive the account.",
+        "root_cause": "After close zeroes an account, init_if_needed can re-initialize it because the account appears uninitialized (system-owned). An attacker who funds the account between close and init_if_needed controls the re-initialization.",
+        "exploit_scenario": "1. Attacker calls instruction with close constraint\n2. Account zeroed, lamports transferred\n3. Attacker funds account with rent-exempt minimum\n4. Attacker calls init_if_needed \u2014 account re-initialized\n5. Attacker controls initialization parameters",
+        "fix_recommendation": "Use plain init instead of init_if_needed, or add lifecycle state tracking:\n  constraint = !account.is_closed",
+        "code_snippet": "      28 |         payer = payer,\n      29 |         space = 8 + 32 + 8,\n      30 |     )]\n>>>   31 |     pub vault: Account<'info, Vault>,\n      32 | \n      33 |     pub authority: Signer<'info>,\n      34 |     pub system_program: Program<'info, System>,",
+        "before_after_state": {
+          "before": "Account: initialized, authority=victim",
+          "after": "Account: re-initialized via init_if_needed, authority=attacker",
+          "damage": "Account hijack via close-then-reinit lifecycle attack."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "Medium \u2014 requires close + init_if_needed on same type",
+          "breach_cost_context": "Account revival: $50K-$2M per program."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "0.25.0 - 0.30.x",
+        "ecosystem_recommendations": [
+          "Use plain init instead of init_if_needed",
+          "Add lifecycle state tracking to prevent re-initialization"
+        ]
+      },
+      {
+        "id": "ANCHOR-003",
+        "name": "Realloc Payer Missing Signer Verification",
+        "severity": "Medium",
+        "file": "realloc_no_signer.rs",
+        "line": 20,
+        "description": "In struct ResizeAccount: realloc payer 'payer' is typed as 'AccountInfo<'info>' instead of Signer<'info>. Lamports transferred without signer verification.",
+        "root_cause": "Anchor's realloc codegen transfers lamports via direct borrow_mut(), bypassing CPI and Solana runtime signer checks. Signer status depends entirely on the Rust type declaration.",
+        "exploit_scenario": "1. Program uses realloc with non-Signer payer\n2. Attacker calls with smaller size to trigger shrink\n3. Excess lamports sent to payer without signer check\n4. Attacker receives lamports at specified address",
+        "fix_recommendation": "Change the realloc payer field type to Signer<'info>:\n  // Before: pub payer: AccountInfo<'info>,\n  // After:  pub payer: Signer<'info>,",
+        "code_snippet": "      17 |     #[account(\n      18 |         mut,\n      19 |         realloc = 200,\n>>>   20 |         realloc::payer = payer,\n      21 |         realloc::zero = false,\n      22 |     )]\n      23 |     pub data_account: Account<'info, DataAccount>,",
+        "before_after_state": {
+          "before": "Account: data_len=1000, lamports=10M. Payer: attacker, lamports=0",
+          "after": "Account: data_len=100, lamports=1M. Payer: attacker, lamports=9M",
+          "damage": "Attacker extracts rent lamports without signing."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "Medium \u2014 requires non-Signer payer",
+          "breach_cost_context": "Estimated: $10K-$500K per program."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "0.26.0 - 0.30.x",
+        "ecosystem_recommendations": [
+          "Change payer to Signer<'info>",
+          "Add #[account(signer)] constraint"
+        ]
+      },
+      {
+        "id": "ANCHOR-004",
+        "name": "Account Type Cosplay \u2014 Missing Discriminator Check",
+        "severity": "Medium",
+        "file": "raw_account_info_no_owner.rs",
+        "line": 24,
+        "description": "In struct ProcessData: field 'data_source' uses raw AccountInfo without owner or discriminator verification. An attacker can substitute a fake account from another program.",
+        "root_cause": "Anchor's Account<'info, T> wrapper automatically verifies the 8-byte discriminator (first 8 bytes of sha256('account:<TypeName>')) and the account's program owner. Raw AccountInfo skips both checks. Developers sometimes use AccountInfo for flexibility but forget to add manual verification, allowing an attacker to pass accounts from arbitrary programs as long as the data layout happens to match.",
+        "exploit_scenario": "1. Program expects a data account with specific fields (e.g., balance, owner)\n2. Field is declared as AccountInfo<'info> without owner check\n3. Attacker creates account in their own program with matching data layout\n4. Attacker sets balance field to MAX_VALUE in their fake account\n5. Attacker passes fake account to victim program\n6. Program reads balance=MAX_VALUE and processes accordingly\n7. Attacker extracts funds or manipulates state based on fake data",
+        "fix_recommendation": "Replace raw AccountInfo with typed Account<'info, T> which automatically checks discriminator and owner:\n  // Before (vulnerable):\n  pub data_account: AccountInfo<'info>,\n\n  // After (safe):\n  pub data_account: Account<'info, MyDataType>,\n\nIf raw AccountInfo is necessary, add explicit checks:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Validated via owner constraint\n  pub data_account: AccountInfo<'info>,",
+        "code_snippet": "      21 |     pub authority: Signer<'info>,\n      22 | \n      23 |     /// No CHECK comment, no owner validation, no typed Account<T>\n>>>   24 |     pub data_source: AccountInfo<'info>,\n      25 | \n      26 |     #[account(mut)]\n      27 |     pub destination: AccountInfo<'info>,",
+        "before_after_state": {
+          "before": "Legitimate account: owner=this_program, data=valid_state, discriminator=correct",
+          "after": "Attacker-crafted account: owner=attacker_program, data=malicious_state (matching byte layout), discriminator=wrong (but unchecked)",
+          "damage": "Program operates on attacker-controlled data believing it's a legitimate account. Can lead to arbitrary state manipulation or fund theft."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL (create fake account + call instruction)",
+          "exploitability": "High \u2014 most common vulnerability in Solana programs",
+          "breach_cost_context": "Missing owner/type checks are the #1 finding in professional Solana security audits. Using raw AccountInfo without owner verification allows attackers to substitute crafted accounts."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer error, not framework bug)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "If AccountInfo is required, add explicit owner check: constraint = account.owner == &expected_program::ID",
+          "Add /// CHECK: comment documenting why the raw type is safe"
+        ]
+      },
+      {
+        "id": "ANCHOR-004",
+        "name": "Account Type Cosplay \u2014 Missing Discriminator Check",
+        "severity": "Medium",
+        "file": "raw_account_info_no_owner.rs",
+        "line": 27,
+        "description": "In struct ProcessData: field 'destination' uses raw AccountInfo without owner or discriminator verification. An attacker can substitute a fake account from another program.",
+        "root_cause": "Anchor's Account<'info, T> wrapper automatically verifies the 8-byte discriminator (first 8 bytes of sha256('account:<TypeName>')) and the account's program owner. Raw AccountInfo skips both checks. Developers sometimes use AccountInfo for flexibility but forget to add manual verification, allowing an attacker to pass accounts from arbitrary programs as long as the data layout happens to match.",
+        "exploit_scenario": "1. Program expects a data account with specific fields (e.g., balance, owner)\n2. Field is declared as AccountInfo<'info> without owner check\n3. Attacker creates account in their own program with matching data layout\n4. Attacker sets balance field to MAX_VALUE in their fake account\n5. Attacker passes fake account to victim program\n6. Program reads balance=MAX_VALUE and processes accordingly\n7. Attacker extracts funds or manipulates state based on fake data",
+        "fix_recommendation": "Replace raw AccountInfo with typed Account<'info, T> which automatically checks discriminator and owner:\n  // Before (vulnerable):\n  pub data_account: AccountInfo<'info>,\n\n  // After (safe):\n  pub data_account: Account<'info, MyDataType>,\n\nIf raw AccountInfo is necessary, add explicit checks:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Validated via owner constraint\n  pub data_account: AccountInfo<'info>,",
+        "code_snippet": "      24 |     pub data_source: AccountInfo<'info>,\n      25 | \n      26 |     #[account(mut)]\n>>>   27 |     pub destination: AccountInfo<'info>,\n      28 | }\n      29 | ",
+        "before_after_state": {
+          "before": "Legitimate account: owner=this_program, data=valid_state, discriminator=correct",
+          "after": "Attacker-crafted account: owner=attacker_program, data=malicious_state (matching byte layout), discriminator=wrong (but unchecked)",
+          "damage": "Program operates on attacker-controlled data believing it's a legitimate account. Can lead to arbitrary state manipulation or fund theft."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL (create fake account + call instruction)",
+          "exploitability": "High \u2014 most common vulnerability in Solana programs",
+          "breach_cost_context": "Missing owner/type checks are the #1 finding in professional Solana security audits. Using raw AccountInfo without owner verification allows attackers to substitute crafted accounts."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer error, not framework bug)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "If AccountInfo is required, add explicit owner check: constraint = account.owner == &expected_program::ID",
+          "Add /// CHECK: comment documenting why the raw type is safe"
+        ]
+      },
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "raw_account_info_no_owner.rs",
+        "line": 24,
+        "description": "In struct ProcessData: field 'data_source' uses raw AccountInfo without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "      21 |     pub authority: Signer<'info>,\n      22 | \n      23 |     /// No CHECK comment, no owner validation, no typed Account<T>\n>>>   24 |     pub data_source: AccountInfo<'info>,\n      25 | \n      26 |     #[account(mut)]\n      27 |     pub destination: AccountInfo<'info>,",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      },
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "raw_account_info_no_owner.rs",
+        "line": 27,
+        "description": "In struct ProcessData: field 'destination' uses raw AccountInfo without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "      24 |     pub data_source: AccountInfo<'info>,\n      25 | \n      26 |     #[account(mut)]\n>>>   27 |     pub destination: AccountInfo<'info>,\n      28 | }\n      29 | ",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      },
+      {
+        "id": "ANCHOR-004",
+        "name": "Account Type Cosplay \u2014 Missing Discriminator Check",
+        "severity": "Medium",
+        "file": "type_cosplay_no_discriminator.rs",
+        "line": 25,
+        "description": "In struct Withdraw: field 'vault_info' uses raw AccountInfo without owner or discriminator verification. An attacker can substitute a fake account from another program.",
+        "root_cause": "Anchor's Account<'info, T> wrapper automatically verifies the 8-byte discriminator (first 8 bytes of sha256('account:<TypeName>')) and the account's program owner. Raw AccountInfo skips both checks. Developers sometimes use AccountInfo for flexibility but forget to add manual verification, allowing an attacker to pass accounts from arbitrary programs as long as the data layout happens to match.",
+        "exploit_scenario": "1. Program expects a data account with specific fields (e.g., balance, owner)\n2. Field is declared as AccountInfo<'info> without owner check\n3. Attacker creates account in their own program with matching data layout\n4. Attacker sets balance field to MAX_VALUE in their fake account\n5. Attacker passes fake account to victim program\n6. Program reads balance=MAX_VALUE and processes accordingly\n7. Attacker extracts funds or manipulates state based on fake data",
+        "fix_recommendation": "Replace raw AccountInfo with typed Account<'info, T> which automatically checks discriminator and owner:\n  // Before (vulnerable):\n  pub data_account: AccountInfo<'info>,\n\n  // After (safe):\n  pub data_account: Account<'info, MyDataType>,\n\nIf raw AccountInfo is necessary, add explicit checks:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Validated via owner constraint\n  pub data_account: AccountInfo<'info>,",
+        "code_snippet": "      22 |     pub authority: Signer<'info>,\n      23 | \n      24 |     /// Raw AccountInfo \u2014 no discriminator or owner check\n>>>   25 |     pub vault_info: AccountInfo<'info>,\n      26 | \n      27 |     pub system_program: Program<'info, System>,\n      28 | }",
+        "before_after_state": {
+          "before": "Legitimate account: owner=this_program, data=valid_state, discriminator=correct",
+          "after": "Attacker-crafted account: owner=attacker_program, data=malicious_state (matching byte layout), discriminator=wrong (but unchecked)",
+          "damage": "Program operates on attacker-controlled data believing it's a legitimate account. Can lead to arbitrary state manipulation or fund theft."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL (create fake account + call instruction)",
+          "exploitability": "High \u2014 most common vulnerability in Solana programs",
+          "breach_cost_context": "Missing owner/type checks are the #1 finding in professional Solana security audits. Using raw AccountInfo without owner verification allows attackers to substitute crafted accounts."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer error, not framework bug)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "If AccountInfo is required, add explicit owner check: constraint = account.owner == &expected_program::ID",
+          "Add /// CHECK: comment documenting why the raw type is safe"
+        ]
+      },
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "type_cosplay_no_discriminator.rs",
+        "line": 25,
+        "description": "In struct Withdraw: field 'vault_info' uses raw AccountInfo without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "      22 |     pub authority: Signer<'info>,\n      23 | \n      24 |     /// Raw AccountInfo \u2014 no discriminator or owner check\n>>>   25 |     pub vault_info: AccountInfo<'info>,\n      26 | \n      27 |     pub system_program: Program<'info, System>,\n      28 | }",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      }
+    ]
+  },
+  "attestation": null,
+  "tx_signature": null,
+  "explorer_url": null,
+  "error": null,
+  "steps": [
+    {
+      "step": "scan",
+      "status": "completed"
+    }
+  ]
+}

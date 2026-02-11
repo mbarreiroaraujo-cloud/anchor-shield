@@ -2,34 +2,59 @@
 
 ## Overview
 
-anchor-shield is a static analysis tool that detects known vulnerability patterns in Solana Anchor programs. It operates at the source code level, matching structural patterns in Rust code that indicate framework-level security issues.
+anchor-shield is an on-chain security attestation protocol for Solana Anchor programs. It combines static analysis with on-chain publishing to create an immutable, queryable record of security assessments.
+
+The system has three main layers:
+1. **Scanner Engine**: Detects 6 vulnerability patterns in Anchor Rust code
+2. **Autonomous Agent**: Orchestrates the scan-analyze-attest cycle
+3. **On-Chain Attestation**: Publishes results as Solana memo transactions
 
 ## System Components
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    User Interface                     │
-│  ┌──────────┐  ┌───────────────┐  ┌──────────────┐ │
-│  │   CLI    │  │  Web Dashboard │  │  JSON/HTML   │ │
-│  │ (click)  │  │  (React+Vite) │  │   Reports    │ │
-│  └────┬─────┘  └──────┬────────┘  └──────┬───────┘ │
-│       │               │                   │         │
-├───────┼───────────────┼───────────────────┼─────────┤
-│       ▼               ▼                   ▼         │
-│  ┌────────────────────────────────────────────┐     │
-│  │            Scanner Engine (Python)          │     │
-│  │  ┌──────────────────────────────────────┐  │     │
-│  │  │     Pattern Matcher (6 patterns)      │  │     │
-│  │  │  ┌──────┐┌──────┐┌──────┐           │  │     │
-│  │  │  │ 001  ││ 002  ││ 003  │  ...      │  │     │
-│  │  │  └──────┘└──────┘└──────┘           │  │     │
-│  │  └──────────────────────────────────────┘  │     │
-│  │  ┌──────────────┐  ┌──────────────────┐   │     │
-│  │  │ GitHub Client │  │  Solana Client   │   │     │
-│  │  │ (fetch repos) │  │ (RPC queries)    │   │     │
-│  │  └──────────────┘  └──────────────────┘   │     │
-│  └────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        User Interface                            │
+│  ┌──────────┐  ┌───────────────┐  ┌──────────┐  ┌───────────┐ │
+│  │ Agent CLI │  │  Web Dashboard │  │ Demo     │  │ JSON/HTML │ │
+│  │ (attest/  │  │  (React+Vite) │  │ Script   │  │  Reports  │ │
+│  │  scan/    │  │  +attestation │  │          │  │           │ │
+│  │  query)   │  │   viewer)     │  │          │  │           │ │
+│  └────┬──────┘  └──────┬────────┘  └────┬─────┘  └─────┬─────┘ │
+│       │                │                │               │       │
+├───────┼────────────────┼────────────────┼───────────────┼───────┤
+│       ▼                ▼                ▼               ▼       │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │               Autonomous Agent (Python)                   │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌───────────────┐  │   │
+│  │  │  Attestation │  │   Indexer    │  │  Agent Loop   │  │   │
+│  │  │  Publisher   │  │  (read TXs)  │  │ (orchestrator)│  │   │
+│  │  └──────┬───────┘  └──────┬───────┘  └───────┬───────┘  │   │
+│  └─────────┼─────────────────┼──────────────────┼──────────┘   │
+│            │                 │                   │              │
+│            ▼                 ▼                   ▼              │
+│  ┌────────────────────────────────────────────────────────┐    │
+│  │            Scanner Engine (Python)                      │    │
+│  │  ┌──────────────────────────────────────┐              │    │
+│  │  │     Pattern Matcher (6 patterns)      │              │    │
+│  │  │  ┌──────┐┌──────┐┌──────┐           │              │    │
+│  │  │  │ 001  ││ 002  ││ 003  │  ...      │              │    │
+│  │  │  └──────┘└──────┘└──────┘           │              │    │
+│  │  └──────────────────────────────────────┘              │    │
+│  │  ┌──────────────┐  ┌──────────────────┐               │    │
+│  │  │ GitHub Client │  │  Solana Client   │               │    │
+│  │  │ (fetch repos) │  │ (RPC queries)    │               │    │
+│  │  └──────────────┘  └──────────────────┘               │    │
+│  └────────────────────────────────────────────────────────┘    │
+│                              │                                  │
+│                              ▼                                  │
+│  ┌────────────────────────────────────────────────────────┐    │
+│  │            Solana Devnet                                │    │
+│  │  ┌──────────────────┐  ┌────────────────────────────┐ │    │
+│  │  │  Memo Program    │  │  Attestation Program (ref) │ │    │
+│  │  │  (live TXs)      │  │  (Rust/Anchor PDA design)  │ │    │
+│  │  └──────────────────┘  └────────────────────────────┘ │    │
+│  └────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Scanner Engine
@@ -110,14 +135,68 @@ Risk score computed from:
 - Is account executable? (not = +5)
 - IDL found on-chain? (no = +1)
 
+## Autonomous Agent
+
+### Agent Loop
+
+The `AutonomousAgent` class orchestrates the full scan-analyze-attest cycle:
+
+```
+scan_and_attest_repo(repo_url)
+  ├── Step 1: Fetch source files from GitHub API
+  ├── Step 2: Run scanner engine on all .rs files
+  ├── Step 3: Aggregate findings into scored report
+  ├── Step 4: Create structured memo from report
+  ├── Step 5: Ensure wallet is funded (devnet airdrop)
+  ├── Step 6: Publish memo transaction on Solana devnet
+  └── Return: AgentResult with tx_signature + explorer_url
+```
+
+### Attestation Publisher
+
+Uses the Solana Python SDK (`solana`, `solders`) to:
+1. Generate an ephemeral keypair or load from config
+2. Request devnet airdrop for transaction fees
+3. Create a memo instruction with structured attestation data
+4. Build, sign, and send the transaction
+5. Wait for confirmation
+
+### Attestation Memo Format
+
+```
+ASHIELD|<version>|<target_hash>|s=<score>|i=<issues>|p=<patterns>|sev=<severity>|h=<report_hash>
+```
+
+Each field is pipe-delimited. Key-value pairs use `=` separator. The memo is compact enough to fit within Solana's memo program limits.
+
+### Indexer
+
+Reads attestation history from Solana transaction logs:
+1. Query `getSignaturesForAddress` for an authority wallet
+2. Fetch each transaction via `getTransaction`
+3. Parse log messages for `ASHIELD` prefix
+4. Extract and validate memo fields
+5. Return structured `AttestationRecord` objects
+
+## On-Chain Program (Reference Design)
+
+The `programs/security_attestation/` directory contains an Anchor program designed for richer on-chain storage:
+
+- **PDA derivation**: `seeds = [b"attestation", target_hash.as_ref()]`
+- **Create attestation**: Stores full attestation data in a PDA account
+- **Update attestation**: Only the original authority can update
+- **Events**: `AttestationCreated`, `AttestationUpdated` for off-chain indexing
+- **Errors**: Input validation for score range and string lengths
+
+This program represents the next evolution: moving from memo-based attestations to structured PDA accounts that other programs can read via CPI.
+
 ## Web Dashboard
 
-The dashboard runs entirely in the browser:
-1. User enters GitHub repo URL
-2. React app fetches file tree via GitHub API
-3. Fetches raw content for each `.rs` file
-4. Runs JavaScript scanner patterns against content
-5. Displays results with severity indicators
+The dashboard runs entirely in the browser with three modes:
+
+1. **GitHub Repo scan**: Fetch + scan via GitHub API + JavaScript patterns
+2. **On-Chain Program check**: Query program metadata via Solana RPC
+3. **Attestation query**: Fetch transaction history and parse ASHIELD memos
 
 No backend required — deployable as a static site.
 

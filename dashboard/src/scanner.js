@@ -291,4 +291,105 @@ export async function checkOnChainProgram(programId, network = 'mainnet-beta') {
   };
 }
 
+const MEMO_PREFIX = 'ASHIELD';
+
+/**
+ * Query attestation history for a wallet address.
+ * Fetches transaction history from Solana devnet and parses ASHIELD memo transactions.
+ */
+export async function queryAttestations(address, network = 'devnet') {
+  const rpcUrl = {
+    devnet: 'https://api.devnet.solana.com',
+    testnet: 'https://api.testnet.solana.com',
+  }[network] || 'https://api.devnet.solana.com';
+
+  // Fetch recent transaction signatures
+  const sigResp = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1,
+      method: 'getSignaturesForAddress',
+      params: [address, { limit: 50, commitment: 'confirmed' }],
+    }),
+  });
+
+  const sigData = await sigResp.json();
+  const signatures = sigData?.result || [];
+
+  const attestations = [];
+
+  // Fetch each transaction and look for ASHIELD memos
+  for (const sigInfo of signatures) {
+    try {
+      const txResp = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1,
+          method: 'getTransaction',
+          params: [sigInfo.signature, {
+            encoding: 'jsonParsed',
+            commitment: 'confirmed',
+            maxSupportedTransactionVersion: 0,
+          }],
+        }),
+      });
+
+      const txData = await txResp.json();
+      const tx = txData?.result;
+      if (!tx?.meta?.logMessages) continue;
+
+      // Search logs for ASHIELD memo
+      for (const log of tx.meta.logMessages) {
+        if (log.includes(MEMO_PREFIX)) {
+          const record = parseMemoLog(log, sigInfo.signature, address, sigInfo.blockTime, network);
+          if (record) attestations.push(record);
+        }
+      }
+    } catch (e) {
+      // Skip failed transaction fetches
+    }
+  }
+
+  return {
+    authority: address,
+    network,
+    total_attestations: attestations.length,
+    attestations,
+  };
+}
+
+function parseMemoLog(logLine, txSignature, authority, blockTime, network) {
+  const idx = logLine.indexOf(MEMO_PREFIX);
+  if (idx < 0) return null;
+
+  const memoText = logLine.substring(idx).replace(/"/g, '');
+  const parts = memoText.split('|');
+  if (parts.length < 7 || parts[0] !== MEMO_PREFIX) return null;
+
+  const kv = {};
+  for (const part of parts.slice(3)) {
+    const eqIdx = part.indexOf('=');
+    if (eqIdx > 0) {
+      kv[part.substring(0, eqIdx)] = part.substring(eqIdx + 1);
+    }
+  }
+
+  return {
+    tx_signature: txSignature,
+    authority,
+    version: parts[1],
+    target_hash: parts[2],
+    score: parseInt(kv.s || '0', 10),
+    issues: parseInt(kv.i || '0', 10),
+    patterns: parseInt(kv.p || '0', 10),
+    severity: kv.sev || '',
+    report_hash: kv.h || '',
+    timestamp: blockTime || 0,
+    network,
+    explorer_url: `https://explorer.solana.com/tx/${txSignature}?cluster=${network}`,
+  };
+}
+
 export { PATTERNS };
