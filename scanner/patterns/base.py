@@ -21,7 +21,7 @@ class Finding:
     code_snippet: str = ""
     before_after_state: Optional[dict] = None
     impact: Optional[dict] = None
-    reference: str = "https://github.com/coral-xyz/anchor/pull/4229"
+    reference: str = "https://github.com/solana-foundation/anchor/pull/4229"
     anchor_versions_affected: str = "0.25.0 - 0.30.x"
     ecosystem_recommendations: list = field(default_factory=list)
 
@@ -53,7 +53,7 @@ class VulnerabilityPattern:
     name: str = ""
     severity: str = ""
     description: str = ""
-    reference: str = "https://github.com/coral-xyz/anchor/pull/4229"
+    reference: str = "https://github.com/solana-foundation/anchor/pull/4229"
 
     def scan(self, file_path: str, content: str) -> list[Finding]:
         """Scan a file for this vulnerability pattern."""

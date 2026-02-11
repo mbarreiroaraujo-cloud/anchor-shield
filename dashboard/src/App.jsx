@@ -50,7 +50,7 @@ function ScanInput({ onScan, loading }) {
       <p className="text-gray-500 mb-8 text-lg">
         Detect known vulnerability patterns in Solana Anchor programs.
         Powered by original research from{' '}
-        <a href="https://github.com/coral-xyz/anchor/pull/4229" target="_blank" rel="noreferrer"
+        <a href="https://github.com/solana-foundation/anchor/pull/4229" target="_blank" rel="noreferrer"
           className="underline" style={{ color: '#14F195' }}>PR #4229</a>.
       </p>
 

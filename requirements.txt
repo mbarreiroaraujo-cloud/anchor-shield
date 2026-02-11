@@ -1,0 +1,6 @@
+rich>=13.0
+click>=8.0
+pyyaml>=6.0
+requests>=2.28
+solana>=0.30.0
+solders>=0.18.0

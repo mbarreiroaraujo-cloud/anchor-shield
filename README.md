@@ -1,8 +1,13 @@
 # anchor-shield
 
+[![Tests](https://github.com/mbarreiroaraujo-cloud/anchor-shield/actions/workflows/tests.yml/badge.svg)](https://github.com/mbarreiroaraujo-cloud/anchor-shield/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Automated security scanner for Solana Anchor programs — powered by original vulnerability research**
 
-> anchor-shield detects known vulnerability patterns in Anchor programs and assesses real-world on-chain risk. Built on original security research that discovered 3 novel vulnerabilities in the Anchor framework itself ([PR #4229](https://github.com/coral-xyz/anchor/pull/4229)).
+> anchor-shield detects known vulnerability patterns in Anchor programs and assesses real-world on-chain risk. Built on original security research that discovered 3 novel vulnerabilities in the Anchor framework itself ([PR #4229](https://github.com/solana-foundation/anchor/pull/4229)).
+
+**[Live Dashboard](https://mbarreiroaraujo-cloud.github.io/anchor-shield/)** · **[Audit PR #4229](https://github.com/solana-foundation/anchor/pull/4229)** · **[Architecture](ARCHITECTURE.md)**
 
 ## What It Does
 
@@ -10,13 +15,36 @@ anchor-shield scans Anchor program source code for 6 framework-level vulnerabili
 
 The scanner works locally, against GitHub repositories, and can assess deployed programs via Solana RPC. Each finding includes root cause analysis, exploit scenarios, and specific fix recommendations.
 
+### Screenshots
+
+<details>
+<summary>CLI Scanner Output</summary>
+
+![CLI Scan Output](docs/screenshots/cli-scan-output.png)
+
+</details>
+
+<details>
+<summary>Web Dashboard</summary>
+
+![Dashboard](docs/screenshots/dashboard-scan-results.png)
+
+</details>
+
+<details>
+<summary>Test Results (19/19 passing)</summary>
+
+![Test Results](docs/screenshots/test-results.png)
+
+</details>
+
 ### Detection Patterns
 
 | ID | Pattern | Severity | Origin |
 |----|---------|----------|--------|
-| ANCHOR-001 | init_if_needed incomplete field validation | High | [PR #4229](https://github.com/coral-xyz/anchor/pull/4229) |
-| ANCHOR-002 | Duplicate mutable account bypass | Medium | [PR #4229](https://github.com/coral-xyz/anchor/pull/4229) |
-| ANCHOR-003 | Realloc payer missing signer verification | Medium | [PR #4229](https://github.com/coral-xyz/anchor/pull/4229) |
+| ANCHOR-001 | init_if_needed incomplete field validation | High | [PR #4229](https://github.com/solana-foundation/anchor/pull/4229) |
+| ANCHOR-002 | Duplicate mutable account bypass | Medium | [PR #4229](https://github.com/solana-foundation/anchor/pull/4229) |
+| ANCHOR-003 | Realloc payer missing signer verification | Medium | [PR #4229](https://github.com/solana-foundation/anchor/pull/4229) |
 | ANCHOR-004 | Account type cosplay / missing discriminator | Medium | Known pattern |
 | ANCHOR-005 | Close + reinit lifecycle attack | Medium | Known pattern |
 | ANCHOR-006 | Missing owner validation | High | Known pattern |
@@ -27,13 +55,13 @@ The scanner works locally, against GitHub repositories, and can assess deployed 
 
 ```bash
 # Install dependencies
-pip install solana solders requests rich click pyyaml
+pip install -r requirements.txt
 
 # Scan a local Anchor project
 python -m scanner.cli scan ./path/to/anchor/program
 
 # Scan a GitHub repository
-python -m scanner.cli scan https://github.com/coral-xyz/anchor
+python -m scanner.cli scan https://github.com/solana-foundation/anchor
 
 # Generate JSON report
 python -m scanner.cli scan ./my-program --format json -o report.json
@@ -151,7 +179,7 @@ This tool is built on original security research. We audited the Anchor framewor
 | V-2: Duplicate mutable account bypass | Medium | init_if_needed accounts excluded from duplicate check |
 | V-3: Realloc payer signer enforcement | Medium | Lamport transfer without signer verification |
 
-These findings were submitted as [PR #4229](https://github.com/coral-xyz/anchor/pull/4229) to solana-foundation/anchor. anchor-shield doesn't just check for theoretical issues — it checks for patterns that are **proven exploitable** through direct analysis of Anchor's code generation.
+These findings were submitted as [PR #4229](https://github.com/solana-foundation/anchor/pull/4229) to solana-foundation/anchor. anchor-shield doesn't just check for theoretical issues — it checks for patterns that are **proven exploitable** through direct analysis of Anchor's code generation.
 
 ## How Solana Is Used
 

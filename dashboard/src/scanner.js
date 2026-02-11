@@ -28,7 +28,7 @@ const PATTERNS = [
           severity: 'High', file: filename, line,
           description: 'Token account accepted via init_if_needed without delegate/close_authority validation.',
           fix: 'Add constraint = account.delegate.is_none() and constraint = account.close_authority.is_none()',
-          reference: 'https://github.com/coral-xyz/anchor/pull/4229',
+          reference: 'https://github.com/solana-foundation/anchor/pull/4229',
         });
       }
       return findings;
@@ -62,7 +62,7 @@ const PATTERNS = [
             line: content.substring(0, sm.index).split('\n').length,
             description: `init_if_needed field coexists with mutable field of type ${hasInitIfNeeded[1]} — excluded from duplicate check.`,
             fix: 'Add explicit duplicate check: require!(a.key() != b.key())',
-            reference: 'https://github.com/coral-xyz/anchor/pull/4229',
+            reference: 'https://github.com/solana-foundation/anchor/pull/4229',
           });
         }
       }
@@ -88,7 +88,7 @@ const PATTERNS = [
             severity: 'Medium', file: filename, line,
             description: `Realloc payer '${payerName}' typed as ${fieldMatch[1]} instead of Signer.`,
             fix: 'Change payer field type to Signer<\'info\'>',
-            reference: 'https://github.com/coral-xyz/anchor/pull/4229',
+            reference: 'https://github.com/solana-foundation/anchor/pull/4229',
           });
         }
       }
@@ -116,7 +116,7 @@ const PATTERNS = [
           severity: 'Medium', file: filename, line,
           description: `Field '${name}' uses raw AccountInfo without owner/discriminator verification.`,
           fix: 'Replace AccountInfo with Account<\'info, T>',
-          reference: 'https://github.com/coral-xyz/anchor/pull/4229',
+          reference: 'https://github.com/solana-foundation/anchor/pull/4229',
         });
       }
       return findings;
@@ -152,7 +152,7 @@ const PATTERNS = [
               line: content.substring(0, initIdx).split('\n').length,
               description: `Account type '${t}' used with both close and init_if_needed.`,
               fix: 'Use plain init instead of init_if_needed for closeable accounts',
-              reference: 'https://github.com/coral-xyz/anchor/pull/4229',
+              reference: 'https://github.com/solana-foundation/anchor/pull/4229',
             });
           }
         }
@@ -181,7 +181,7 @@ const PATTERNS = [
           severity: 'High', file: filename, line,
           description: `Field '${name}' uses raw AccountInfo/UncheckedAccount without owner check.`,
           fix: 'Use Account<\'info, T> or add #[account(owner = program::ID)]',
-          reference: 'https://github.com/coral-xyz/anchor/pull/4229',
+          reference: 'https://github.com/solana-foundation/anchor/pull/4229',
         });
       }
       return findings;
