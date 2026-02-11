@@ -24,7 +24,7 @@ class ReallocPayerPattern(VulnerabilityPattern):
         "payer without CPI, relying entirely on the field type declaration for "
         "signer verification."
     )
-    reference = "https://github.com/coral-xyz/anchor/pull/4229"
+    reference = "https://github.com/solana-foundation/anchor/pull/4229"
 
     REALLOC_PAYER_RE = re.compile(r"realloc\s*::\s*payer\s*=\s*(\w+)")
 

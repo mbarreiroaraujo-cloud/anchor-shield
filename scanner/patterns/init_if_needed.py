@@ -25,7 +25,7 @@ class InitIfNeededPattern(VulnerabilityPattern):
         "validation of delegate, close_authority, or state fields. An attacker "
         "can pre-create the account with malicious field values."
     )
-    reference = "https://github.com/coral-xyz/anchor/pull/4229"
+    reference = "https://github.com/solana-foundation/anchor/pull/4229"
 
     # Regex to find #[account(...init_if_needed...)] blocks
     ACCOUNT_ATTR_RE = re.compile(

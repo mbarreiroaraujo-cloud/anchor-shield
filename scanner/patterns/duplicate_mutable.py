@@ -25,7 +25,7 @@ class DuplicateMutablePattern(VulnerabilityPattern):
         "the same account for both the init_if_needed field and another mutable "
         "field, leading to unexpected double-mutation."
     )
-    reference = "https://github.com/coral-xyz/anchor/pull/4229"
+    reference = "https://github.com/solana-foundation/anchor/pull/4229"
 
     def scan(self, file_path: str, content: str) -> list[Finding]:
         findings = []
