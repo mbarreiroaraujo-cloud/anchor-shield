@@ -127,9 +127,10 @@ class InitIfNeededPattern(VulnerabilityPattern):
                         "attack_cost": "< 0.01 SOL (single transaction to pre-create account)",
                         "exploitability": "High — single transaction, no special setup required",
                         "breach_cost_context": (
-                            "Similar unchecked deserialization patterns contributed to "
-                            "the Wormhole bridge exploit ($320M, Feb 2022). Conservative "
-                            "estimate: $500K-$15M at risk across affected programs."
+                            "Incomplete field validation in token account deserialization "
+                            "is a high-impact pattern. Programs accepting pre-created token "
+                            "accounts via init_if_needed risk unauthorized delegate or "
+                            "close_authority retention by attackers."
                         ),
                     },
                     anchor_versions_affected="0.25.0 - 0.30.x (init_if_needed introduced in 0.25)",

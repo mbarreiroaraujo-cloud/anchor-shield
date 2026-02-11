@@ -112,8 +112,9 @@ class TypeCosplayPattern(VulnerabilityPattern):
                             ),
                             "breach_cost_context": (
                                 "Missing owner/type checks are the #1 finding in "
-                                "Solana security audits. The Mango Markets exploit "
-                                "($114M) involved similar account substitution."
+                                "professional Solana security audits. Using raw "
+                                "AccountInfo without owner verification allows "
+                                "attackers to substitute crafted accounts."
                             ),
                         },
                         anchor_versions_affected="All versions (developer error, not framework bug)",
