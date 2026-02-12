@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { scanGitHubRepo, checkOnChainProgram, PATTERNS } from './scanner.js'
+import { scanGitHubRepo, checkOnChainProgram, queryAttestations, PATTERNS } from './scanner.js'
 
 const SEVERITY_COLORS = {
   Critical: '#FF4444',
@@ -23,9 +23,9 @@ function Header() {
           <span className="font-bold" style={{ color: '#9945FF' }}>anchor</span>
           <span className="font-bold text-gray-300">-shield</span>
         </div>
-        <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#9945FF22', color: '#9945FF' }}>v0.1.0</span>
+        <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#9945FF22', color: '#9945FF' }}>v0.2.0</span>
         <div className="ml-auto text-sm text-gray-500">
-          Automated Security Scanner for Solana Anchor Programs
+          On-Chain Security Attestation Protocol for Solana
         </div>
       </div>
     </header>
@@ -44,39 +44,33 @@ function ScanInput({ onScan, loading }) {
   return (
     <div className="max-w-3xl mx-auto text-center py-12 px-6">
       <h1 className="text-4xl font-bold mb-2">
-        <span style={{ color: '#9945FF' }}>Security Scanner</span>
-        <span className="text-gray-400"> for Anchor Programs</span>
+        <span style={{ color: '#9945FF' }}>Security Attestation</span>
+        <span className="text-gray-400"> Protocol</span>
       </h1>
       <p className="text-gray-500 mb-8 text-lg">
-        Detect known vulnerability patterns in Solana Anchor programs.
+        Scan Anchor programs, publish immutable security attestations on Solana devnet.
         Powered by original research from{' '}
         <a href="https://github.com/solana-foundation/anchor/pull/4229" target="_blank" rel="noreferrer"
           className="underline" style={{ color: '#14F195' }}>PR #4229</a>.
       </p>
 
       <div className="flex gap-2 justify-center mb-4">
-        <button
-          onClick={() => setMode('repo')}
-          className={`px-4 py-1.5 rounded text-sm font-medium transition-all ${
-            mode === 'repo'
-              ? 'text-white'
-              : 'text-gray-500 hover:text-gray-300'
-          }`}
-          style={mode === 'repo' ? { background: '#9945FF' } : { background: '#1A1D2E' }}
-        >
-          GitHub Repo
-        </button>
-        <button
-          onClick={() => setMode('program')}
-          className={`px-4 py-1.5 rounded text-sm font-medium transition-all ${
-            mode === 'program'
-              ? 'text-white'
-              : 'text-gray-500 hover:text-gray-300'
-          }`}
-          style={mode === 'program' ? { background: '#9945FF' } : { background: '#1A1D2E' }}
-        >
-          On-Chain Program
-        </button>
+        {[
+          { key: 'repo', label: 'GitHub Repo' },
+          { key: 'program', label: 'On-Chain Program' },
+          { key: 'attestation', label: 'Attestations' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setMode(key)}
+            className={`px-4 py-1.5 rounded text-sm font-medium transition-all ${
+              mode === key ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}
+            style={mode === key ? { background: '#9945FF' } : { background: '#1A1D2E' }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="flex gap-2 max-w-2xl mx-auto">
@@ -85,9 +79,13 @@ function ScanInput({ onScan, loading }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleScan()}
-          placeholder={mode === 'repo'
-            ? 'https://github.com/owner/repo'
-            : 'Program ID (e.g., 6LtL...3kRR)'}
+          placeholder={
+            mode === 'repo'
+              ? 'https://github.com/owner/repo'
+              : mode === 'program'
+              ? 'Program ID (e.g., 6LtL...3kRR)'
+              : 'Wallet address or transaction signature'
+          }
           className="flex-1 px-4 py-3 rounded-lg text-sm font-mono outline-none transition-all"
           style={{
             background: '#1A1D2E',
@@ -102,7 +100,7 @@ function ScanInput({ onScan, loading }) {
           className="px-6 py-3 rounded-lg font-semibold text-white text-sm transition-all hover:opacity-90 disabled:opacity-50"
           style={{ background: 'linear-gradient(135deg, #9945FF, #14F195)' }}
         >
-          {loading ? 'Scanning...' : 'Scan'}
+          {loading ? (mode === 'attestation' ? 'Querying...' : 'Scanning...') : (mode === 'attestation' ? 'Query' : 'Scan')}
         </button>
       </div>
     </div>
@@ -133,7 +131,7 @@ function SummaryBar({ summary, score }) {
   )
 }
 
-function FindingCard({ finding, index }) {
+function FindingCard({ finding }) {
   const [expanded, setExpanded] = useState(false)
   return (
     <div
@@ -155,7 +153,7 @@ function FindingCard({ finding, index }) {
         <div className="flex-1">
           <div className="font-semibold text-sm">
             <span className="text-gray-400">{finding.id}</span>
-            <span className="mx-2 text-gray-600">—</span>
+            <span className="mx-2 text-gray-600">-</span>
             {finding.name}
           </div>
           <div className="text-xs text-gray-500 mt-1 font-mono">
@@ -228,6 +226,102 @@ function ProgramInfo({ info }) {
   )
 }
 
+function AttestationCard({ attestation }) {
+  const scoreColor = attestation.score >= 80 ? '#00C853' :
+    attestation.score >= 50 ? '#FFA500' : '#FF4444'
+  const date = attestation.timestamp
+    ? new Date(attestation.timestamp * 1000).toLocaleString()
+    : 'Unknown'
+
+  return (
+    <div className="rounded-lg p-5 mb-3" style={{ background: '#1A1D2E', borderLeft: `4px solid ${scoreColor}` }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="text-2xl font-bold" style={{ color: scoreColor }}>
+            {attestation.score}
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-gray-300">Security Score</div>
+            <div className="text-xs text-gray-500">{date}</div>
+          </div>
+        </div>
+        <a
+          href={attestation.explorer_url}
+          target="_blank"
+          rel="noreferrer"
+          className="px-3 py-1.5 rounded text-xs font-medium transition-all hover:opacity-80"
+          style={{ background: '#9945FF33', color: '#9945FF' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          View on Explorer
+        </a>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <span className="text-gray-500">Issues:</span>
+          <span className="ml-2 text-gray-300">{attestation.issues}</span>
+        </div>
+        <div>
+          <span className="text-gray-500">Patterns:</span>
+          <span className="ml-2 text-gray-300">{attestation.patterns}</span>
+        </div>
+        <div>
+          <span className="text-gray-500">Severity:</span>
+          <span className="ml-2 font-mono text-xs text-gray-400">{attestation.severity}</span>
+        </div>
+        <div>
+          <span className="text-gray-500">Version:</span>
+          <span className="ml-2 text-gray-300">{attestation.version}</span>
+        </div>
+      </div>
+      <div className="mt-2 text-xs font-mono text-gray-600 truncate">
+        TX: {attestation.tx_signature}
+      </div>
+    </div>
+  )
+}
+
+function AttestationView({ data }) {
+  if (!data) return null
+
+  return (
+    <div className="max-w-3xl mx-auto px-6 pb-12">
+      <div className="flex items-center gap-3 mb-4">
+        <h2 className="text-lg font-semibold text-gray-300">
+          On-Chain Attestations
+        </h2>
+        <span className="px-2 py-0.5 rounded text-xs" style={{ background: '#14F19522', color: '#14F195' }}>
+          {data.network}
+        </span>
+      </div>
+
+      <div className="rounded-lg p-4 mb-6" style={{ background: '#1A1D2E' }}>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <span className="text-gray-500">Authority:</span>
+            <span className="ml-2 font-mono text-xs text-gray-400">{data.authority}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Total Attestations:</span>
+            <span className="ml-2 font-bold" style={{ color: '#14F195' }}>{data.total_attestations}</span>
+          </div>
+        </div>
+      </div>
+
+      {data.attestations.length === 0 ? (
+        <div className="text-center py-8 rounded-lg" style={{ background: '#1A1D2E' }}>
+          <div className="text-xl mb-2 text-gray-400">No attestations found</div>
+          <p className="text-gray-600 text-sm">
+            This address has no anchor-shield attestations on {data.network}.
+          </p>
+        </div>
+      ) : (
+        data.attestations.map((att, i) => <AttestationCard key={i} attestation={att} />)
+      )}
+    </div>
+  )
+}
+
 function PatternTable() {
   return (
     <div className="max-w-3xl mx-auto px-6 pb-12">
@@ -257,6 +351,19 @@ function PatternTable() {
           </tbody>
         </table>
       </div>
+
+      <div className="mt-8 rounded-lg p-5" style={{ background: '#1A1D2E' }}>
+        <h3 className="text-sm font-semibold mb-3" style={{ color: '#14F195' }}>
+          How On-Chain Attestations Work
+        </h3>
+        <div className="text-sm text-gray-400 space-y-2">
+          <p>anchor-shield publishes security scan results as immutable attestations on Solana devnet.</p>
+          <p>Each attestation is a structured memo transaction containing the security score, issue count,
+            severity breakdown, and a hash of the full report for integrity verification.</p>
+          <p>Use the <span className="font-mono text-xs" style={{ color: '#9945FF' }}>Attestations</span> tab
+            to query attestation history by wallet address or transaction signature.</p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -264,6 +371,7 @@ function PatternTable() {
 export default function App() {
   const [results, setResults] = useState(null)
   const [programInfo, setProgramInfo] = useState(null)
+  const [attestationData, setAttestationData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -272,9 +380,13 @@ export default function App() {
     setError(null)
     setResults(null)
     setProgramInfo(null)
+    setAttestationData(null)
 
     try {
-      if (mode === 'program') {
+      if (mode === 'attestation') {
+        const data = await queryAttestations(input)
+        setAttestationData(data)
+      } else if (mode === 'program') {
         const info = await checkOnChainProgram(input)
         setProgramInfo(info)
       } else {
@@ -305,7 +417,7 @@ export default function App() {
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gray-600"
             style={{ borderTopColor: '#9945FF' }} />
-          <p className="text-gray-500 mt-3 text-sm">Scanning repository...</p>
+          <p className="text-gray-500 mt-3 text-sm">Processing...</p>
         </div>
       )}
 
@@ -314,6 +426,8 @@ export default function App() {
           <ProgramInfo info={programInfo} />
         </div>
       )}
+
+      {attestationData && <AttestationView data={attestationData} />}
 
       {results && (
         <div className="max-w-3xl mx-auto px-6 pb-12">
@@ -338,15 +452,15 @@ export default function App() {
               </p>
             </div>
           ) : (
-            results.findings.map((f, i) => <FindingCard key={i} finding={f} index={i} />)
+            results.findings.map((f, i) => <FindingCard key={i} finding={f} />)
           )}
         </div>
       )}
 
-      {!results && !programInfo && !loading && !error && <PatternTable />}
+      {!results && !programInfo && !attestationData && !loading && !error && <PatternTable />}
 
       <footer className="border-t border-gray-800 py-6 text-center text-sm text-gray-600">
-        anchor-shield v0.1.0 | Built on original security research |{' '}
+        anchor-shield v0.2.0 | On-Chain Security Attestation Protocol |{' '}
         <a href="https://github.com/mbarreiroaraujo-cloud/anchor-shield" target="_blank" rel="noreferrer"
           style={{ color: '#9945FF' }}>GitHub</a>
       </footer>
