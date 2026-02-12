@@ -7,12 +7,12 @@ echo "Installing anchor-shield..."
 echo ""
 
 # Python dependencies
-echo "[1/3] Installing Python dependencies..."
+echo "[1/4] Installing Python dependencies..."
 pip install solana solders requests rich click pyyaml 2>/dev/null || \
 pip install --break-system-packages solana solders requests rich click pyyaml
 
 # Dashboard dependencies
-echo "[2/3] Installing dashboard dependencies..."
+echo "[2/4] Installing dashboard dependencies..."
 if command -v node &> /dev/null; then
     cd dashboard && npm install && cd ..
     echo "      Dashboard ready. Run: cd dashboard && npm run dev"
@@ -22,21 +22,22 @@ else
 fi
 
 # Verify scanner works
-echo "[3/3] Verifying scanner..."
-python -m scanner.cli scan tests/test_patterns/vulnerable --format json > /dev/null 2>&1
-echo "      Scanner verified."
-echo ""
+echo "[3/4] Verifying static scanner..."
+python -c "from scanner.engine import AnchorShieldEngine; print('      Static scanner OK')"
 
+# Verify semantic modules
+echo "[4/4] Verifying semantic modules..."
+python -c "from semantic.analyzer import SemanticAnalyzer; from adversarial.synthesizer import ExploitSynthesizer; print('      Semantic modules OK')"
+
+echo ""
 echo "Setup complete. Usage:"
 echo ""
-echo "  # Scan a local Anchor project"
-echo "  python -m scanner.cli scan ./path/to/anchor/program"
+echo "  # Run full adversarial analysis pipeline"
+echo "  export ANTHROPIC_API_KEY=sk-ant-..."
+echo "  python agent/orchestrator.py examples/vulnerable-lending/"
 echo ""
-echo "  # Scan a GitHub repository"
-echo "  python -m scanner.cli scan https://github.com/owner/repo"
-echo ""
-echo "  # Check a deployed program on Solana"
-echo "  python -m scanner.cli check <PROGRAM_ID> --network mainnet-beta"
+echo "  # Run without API key (demo mode with pre-validated results)"
+echo "  python agent/orchestrator.py examples/vulnerable-lending/"
 echo ""
 echo "  # Launch web dashboard"
 echo "  cd dashboard && npm run dev"
