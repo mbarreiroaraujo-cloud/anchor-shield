@@ -1,0 +1,15 @@
+anchor-shield Semantic Analysis Results
+==================================================
+
+[CRITICAL] borrow: Collateral check ignores existing debt
+  The borrow() function validates collateral with `require!(user.deposited >= amount)` but never subtracts the user's existing borrowed amount. A user who deposited 100 SOL can borrow 100 SOL, then call
+  Confidence: 0.97
+
+[CRITICAL] withdraw: Withdrawal permitted with outstanding borrows
+  The withdraw() function checks `user.deposited >= amount` but does not verify that the remaining deposit covers outstanding borrows. A user can deposit 100 SOL, borrow 90 SOL, then withdraw all 100 SO
+  Confidence: 0.96
+
+[HIGH] liquidate: Integer overflow in liquidation debt calculation
+  The liquidate() function computes debt as `user.borrowed * pool.interest_rate * pool.total_borrows / 10000`. This multiplication chain on u64 values overflows when the pool has significant total borro
+  Confidence: 0.92
+

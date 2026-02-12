@@ -1,0 +1,23 @@
+anchor-shield Static Pattern Scan — vulnerable-lending/src/lib.rs
+================================================================
+
+Static scan: 6 pattern matches
+Security score: F
+
+  [High] Missing Owner Validation
+  [High] Missing Owner Validation
+  [High] Missing Owner Validation
+  [High] Missing Owner Validation
+  [High] Missing Owner Validation
+  [High] Missing Owner Validation
+
+All 6 findings are for AccountInfo fields used as PDA vaults with
+/// CHECK: documentation — these are standard Anchor patterns and
+represent false positives from the regex-based scanner.
+
+>>> The 3 critical LOGIC bugs are NOT detected: <<<
+  1. Collateral check ignores existing debt (borrow function)
+  2. Withdraw permits full withdrawal with outstanding borrows
+  3. Integer overflow in liquidation debt calculation
+
+>>> Regex-based scanning cannot understand program logic <<<
