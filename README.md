@@ -39,12 +39,12 @@ We created a lending pool program with 4 intentional logic vulnerabilities and r
 
 ```bash
 # Clone and install
-git clone https://github.com/mbarreiroaraujo-cloud/anchor-shield.git
+git clone https://github.com/your-org/anchor-shield.git
 cd anchor-shield
 pip install -r requirements.txt
 
 # Set your API key (for live LLM analysis)
-export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY=your-api-key-here
 
 # Run the full pipeline against the demo target
 python agent/orchestrator.py examples/vulnerable-lending/
