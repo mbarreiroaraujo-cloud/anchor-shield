@@ -1,0 +1,46 @@
+
+[1m═════════════════════════════════════════════════════════════[0m
+[1m anchor-shield — Adversarial Security Analysis[0m
+[1m═════════════════════════════════════════════════════════════[0m
+
+[2m  Found 1 Rust source file(s)[0m
+
+[36m[1/5][0m [1mStatic pattern analysis...[0m
+      Scanned 1 file(s), found 2 pattern matches
+      Logic bugs detected: 0
+
+[36m[2/5][0m [1mSemantic LLM analysis...[0m
+      Analyzing lib.rs
+      Logic vulnerabilities found: 5
+        [33m[High][0m create_pool(): Integer Overflow in Timestamp Check
+        [33m[High][0m calculate_latest_token_fees(): Unchecked Arithmetic Leading to Integer Overflow
+        [0m[Medium][0m decrease_liquidity(): Inconsistent Status Bit Checking Logic
+        [31m[Critical][0m decrease_liquidity_and_update_position(): Race Condition in Fee Collection Without Atomicity
+        [33m[High][0m burn_liquidity(): Tick Array State Inconsistency
+
+[36m[3/5][0m [1mGenerating exploit code...[0m
+    [attempt 1/3] API error: HTTP Error 429: Too Many Requests
+    [attempt 2/3] API error: HTTP Error 429: Too Many Requests
+    [attempt 3/3] API error: HTTP Error 429: Too Many Requests
+      Generated 3 exploits for Critical/High findings
+
+[36m[4/5][0m [1mExecuting exploits...[0m
+      [2mExecution skipped (--no-execute)[0m
+
+[36m[5/5][0m [1mReport generation...[0m
+      Saved: SECURITY_REPORT.json
+
+[1m═════════════════════════════════════════════════════════════[0m
+[1m RESULTS SUMMARY[0m
+[1m═════════════════════════════════════════════════════════════[0m
+ Static patterns:        2 matches (0 logic bugs)
+ Semantic analysis:      5 logic vulnerabilities
+ Exploits generated:     3
+ Exploits confirmed:     0 / 3
+
+ [33mCritical logic bugs INVISIBLE to regex:[0m 5
+ [33mExploits proving real-world impact:[0m     0
+[1m═════════════════════════════════════════════════════════════[0m
+ Total analysis time: 81.5 seconds
+[1m═════════════════════════════════════════════════════════════[0m
+

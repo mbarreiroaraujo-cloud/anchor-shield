@@ -1,0 +1,168 @@
+{
+  "meta": {
+    "tool": "anchor-shield",
+    "version": "0.2.0",
+    "timestamp": "2026-02-12T22:25:21.732101+00:00",
+    "analysis_time_seconds": 81.5,
+    "target": "/home/user/anchor-shield/real-world-targets/raydium-clmm",
+    "route": "LLM-ONLY"
+  },
+  "static_analysis": {
+    "engine": "regex pattern matcher v0.1.0",
+    "findings_count": 2,
+    "logic_bugs_found": 0,
+    "findings": [
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "lib.rs",
+        "line": 56,
+        "description": "In struct CreatePool: field 'token_vault_0' uses raw UncheckedAccount without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "      53 |         ],\n      54 |         bump,\n      55 |     )]\n>>>   56 |     pub token_vault_0: UncheckedAccount<'info>,\n      57 | \n      58 |     /// CHECK: Token_1 vault for the pool, initialized in contract\n      59 |     #[account(",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace UncheckedAccount<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      },
+      {
+        "id": "ANCHOR-006",
+        "name": "Missing Owner Validation",
+        "severity": "High",
+        "file": "lib.rs",
+        "line": 68,
+        "description": "In struct CreatePool: field 'token_vault_1' uses raw UncheckedAccount without owner validation or CHECK documentation.",
+        "root_cause": "Solana accounts are byte arrays with an owner field. Any program can create accounts with arbitrary data. Anchor's Account<T> verifies discriminator and owner. Raw AccountInfo provides no verification.",
+        "exploit_scenario": "1. Program deserializes without owner check\n2. Attacker creates matching account in their program\n3. Attacker passes fake account to victim program\n4. Program operates on forged data",
+        "fix_recommendation": "Use Account<'info, T> for automatic owner + discriminator check, or add:\n  #[account(owner = my_program::ID)]\n  /// CHECK: Owner verified via constraint\n  pub data: AccountInfo<'info>,",
+        "code_snippet": "      65 |         ],\n      66 |         bump,\n      67 |     )]\n>>>   68 |     pub token_vault_1: UncheckedAccount<'info>,\n      69 | \n      70 |     /// Initialize an account to store oracle observations\n      71 |     #[account(",
+        "before_after_state": {
+          "before": "Expected: account owned by this program",
+          "after": "Actual: attacker passes account from their own program",
+          "damage": "Arbitrary state manipulation via fake account data."
+        },
+        "impact": {
+          "attack_cost": "< 0.01 SOL",
+          "exploitability": "High \u2014 most common Solana vulnerability",
+          "breach_cost_context": "Missing owner checks: #1 audit finding in professional Solana security audits."
+        },
+        "reference": "https://github.com/solana-foundation/anchor/pull/4229",
+        "anchor_versions_affected": "All versions (developer-side pattern)",
+        "ecosystem_recommendations": [
+          "Replace UncheckedAccount<'info> with Account<'info, T>",
+          "Add #[account(owner = program::ID)] constraint",
+          "Add /// CHECK: documentation"
+        ]
+      }
+    ]
+  },
+  "semantic_analysis": {
+    "engine": "LLM semantic analyzer",
+    "model": "claude-sonnet-4-20250514",
+    "mode": "live",
+    "findings_count": 5,
+    "findings": [
+      {
+        "id": "SEM-001",
+        "severity": "High",
+        "function": "create_pool",
+        "title": "Integer Overflow in Timestamp Check",
+        "description": "The function uses `require_gt!(block_timestamp, open_time)` without checking for potential overflow. When converting Clock::unix_timestamp (i64) to u64, negative timestamps become large positive values, potentially bypassing the intended time restriction. This could allow pool creation when it should be prohibited.",
+        "attack_scenario": "1. Attacker observes system clock issues or timestamp manipulation scenarios\n2. Calls create_pool with open_time set to a large future timestamp\n3. If Clock::unix_timestamp is negative (due to system issues), the cast to u64 creates a very large positive number\n4. The require_gt check passes incorrectly, allowing pool creation at an inappropriate time",
+        "estimated_impact": "Pool creation timing controls can be bypassed, potentially allowing pools to be created outside intended time windows or during maintenance periods",
+        "confidence": 0.7,
+        "source": "semantic"
+      },
+      {
+        "id": "SEM-002",
+        "severity": "High",
+        "function": "calculate_latest_token_fees",
+        "title": "Unchecked Arithmetic Leading to Integer Overflow",
+        "description": "The function performs `fee_growth_inside_latest_x64.wrapping_sub(fee_growth_inside_last_x64)` and then uses this in multiplication operations without overflow protection. While wrapping_sub is intentional for handling fee growth wraparound, the subsequent multiplication in mul_div_floor could overflow if the result is very large, and the final checked_add could panic in debug mode but wrap in release mode.",
+        "attack_scenario": "1. Attacker manipulates position to have very large fee growth deltas\n2. The wrapping_sub creates a large positive number due to intentional wraparound\n3. The multiplication operations amplify this large number\n4. In release mode, the final checked_add wraps silently, causing fee calculation errors\n5. User receives incorrect (potentially much smaller) fee amounts",
+        "estimated_impact": "Fee calculations can be corrupted, leading to users receiving incorrect fee payouts - potentially significant financial losses",
+        "confidence": 0.8,
+        "source": "semantic"
+      },
+      {
+        "id": "SEM-003",
+        "severity": "Medium",
+        "function": "decrease_liquidity",
+        "title": "Inconsistent Status Bit Checking Logic",
+        "description": "The function checks three different status bits with OR logic: `!pool_state.get_status_by_bit(PoolStatusBitIndex::DecreaseLiquidity) && !pool_state.get_status_by_bit(PoolStatusBitIndex::CollectFee) && !pool_state.get_status_by_bit(PoolStatusBitIndex::CollectReward)`. This means the function proceeds if ANY of these operations are enabled, but the business logic suggests it should require specific operations to be enabled for specific actions.",
+        "attack_scenario": "1. Pool admin disables DecreaseLiquidity but leaves CollectFee enabled\n2. User calls decrease_liquidity expecting it to fail due to DecreaseLiquidity being disabled\n3. Function proceeds because CollectFee is enabled, allowing liquidity decrease when it should be prohibited\n4. User's liquidity is decreased against the intended pool access controls",
+        "estimated_impact": "Pool access controls can be bypassed, allowing operations when they should be disabled according to pool configuration",
+        "confidence": 0.6,
+        "source": "semantic"
+      },
+      {
+        "id": "SEM-004",
+        "severity": "Critical",
+        "function": "decrease_liquidity_and_update_position",
+        "title": "Race Condition in Fee Collection Without Atomicity",
+        "description": "The function performs multiple state mutations across pool_state and personal_position without proper atomicity. Between checking unclaimed fees with `require_gte!` and updating the claimed amounts, another transaction could collect fees, making the pool state inconsistent. The fee collection logic updates pool.total_fees_claimed but doesn't verify the vault has sufficient funds for the transfer.",
+        "attack_scenario": "1. User A calls decrease_liquidity with large fee claims pending\n2. User B simultaneously calls a fee collection function\n3. Both transactions pass the require_gte checks based on stale state\n4. User B's transaction commits first, updating total_fees_claimed\n5. User A's transaction commits, further incrementing total_fees_claimed beyond available fees\n6. Pool's claimed fee accounting becomes permanently inconsistent with actual vault balances",
+        "estimated_impact": "Pool accounting corruption where total claimed fees exceed actual fees, potentially leading to failed withdrawals and protocol insolvency",
+        "confidence": 0.9,
+        "source": "semantic"
+      },
+      {
+        "id": "SEM-005",
+        "severity": "High",
+        "function": "burn_liquidity",
+        "title": "Tick Array State Inconsistency",
+        "description": "The function modifies tick states and flip tick array bits but doesn't verify that the tick_array_bitmap_extension account (when provided) actually corresponds to the correct pool. While there are key checks for tick arrays, the extension bitmap could belong to a different pool, leading to incorrect bitmap updates.",
+        "attack_scenario": "1. Attacker creates malicious tick_array_bitmap_extension account with same seeds but different pool\n2. Calls decrease_liquidity providing this malicious extension account\n3. The function updates the wrong bitmap extension, corrupting tick array initialization state\n4. Future liquidity operations use incorrect bitmap data, leading to failed swaps or liquidity operations",
+        "estimated_impact": "Pool tick array bitmap corruption can break liquidity provision and swapping functionality",
+        "confidence": 0.7,
+        "source": "semantic"
+      }
+    ]
+  },
+  "exploits": [
+    {
+      "finding_id": "SEM-001",
+      "title": "Integer Overflow in Timestamp Check",
+      "status": "GENERATED",
+      "language": "python",
+      "code_file": "exploits/exploit_sem_001.py"
+    },
+    {
+      "finding_id": "SEM-002",
+      "title": "Unchecked Arithmetic Leading to Integer Overflow",
+      "status": "GENERATED",
+      "language": "python",
+      "code_file": "exploits/exploit_sem_002.py"
+    },
+    {
+      "finding_id": "SEM-004",
+      "title": "Race Condition in Fee Collection Without Atomicity",
+      "status": "GENERATED",
+      "language": "python",
+      "code_file": "exploits/exploit_sem_004.py"
+    }
+  ],
+  "summary": {
+    "static_pattern_matches": 2,
+    "logic_bugs_by_llm": 5,
+    "exploits_generated": 3,
+    "exploits_confirmed": 0,
+    "logic_bugs_missed_by_regex": 5
+  }
+}

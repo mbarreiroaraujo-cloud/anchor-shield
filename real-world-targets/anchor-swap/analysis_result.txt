@@ -1,0 +1,41 @@
+
+[1m═════════════════════════════════════════════════════════════[0m
+[1m anchor-shield — Adversarial Security Analysis[0m
+[1m═════════════════════════════════════════════════════════════[0m
+
+[2m  Found 1 Rust source file(s)[0m
+
+[36m[1/5][0m [1mStatic pattern analysis...[0m
+      Scanned 1 file(s), found 2 pattern matches
+      Logic bugs detected: 0
+
+[36m[2/5][0m [1mSemantic LLM analysis...[0m
+      Analyzing lib.rs
+      Logic vulnerabilities found: 3
+        [31m[Critical][0m coin_lots(): Division by Zero in Market Lot Size Calculation
+        [33m[High][0m order_cpi(): Zero Value Panic in NonZeroU64 Construction
+        [0m[Medium][0m swap(): Inconsistent Amount Validation Between Given and Actual
+
+[36m[3/5][0m [1mGenerating exploit code...[0m
+      Generated 2 exploits for Critical/High findings
+
+[36m[4/5][0m [1mExecuting exploits...[0m
+      [2mExecution skipped (--no-execute)[0m
+
+[36m[5/5][0m [1mReport generation...[0m
+      Saved: SECURITY_REPORT.json
+
+[1m═════════════════════════════════════════════════════════════[0m
+[1m RESULTS SUMMARY[0m
+[1m═════════════════════════════════════════════════════════════[0m
+ Static patterns:        2 matches (0 logic bugs)
+ Semantic analysis:      3 logic vulnerabilities
+ Exploits generated:     2
+ Exploits confirmed:     0 / 2
+
+ [33mCritical logic bugs INVISIBLE to regex:[0m 3
+ [33mExploits proving real-world impact:[0m     0
+[1m═════════════════════════════════════════════════════════════[0m
+ Total analysis time: 76.5 seconds
+[1m═════════════════════════════════════════════════════════════[0m
+

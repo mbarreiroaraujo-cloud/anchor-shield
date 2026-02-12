@@ -1,0 +1,43 @@
+
+[1m═════════════════════════════════════════════════════════════[0m
+[1m anchor-shield — Adversarial Security Analysis[0m
+[1m═════════════════════════════════════════════════════════════[0m
+
+[2m  Found 1 Rust source file(s)[0m
+
+[36m[1/5][0m [1mStatic pattern analysis...[0m
+      Scanned 1 file(s), found 3 pattern matches
+      Logic bugs detected: 0
+
+[36m[2/5][0m [1mSemantic LLM analysis...[0m
+      Analyzing lib.rs
+      Logic vulnerabilities found: 5
+        [31m[Critical][0m create_multisig(): Zero threshold allows bypassing multisig security
+        [31m[Critical][0m create_multisig(): Empty owners list allows creation of ungovernable multisig
+        [33m[High][0m approve(): Double approval vulnerability allows signature replay
+        [33m[High][0m set_owners(): Integer overflow in owners length comparison
+        [0m[Medium][0m change_threshold(): Integer overflow in threshold comparison
+
+[36m[3/5][0m [1mGenerating exploit code...[0m
+      Generated 4 exploits for Critical/High findings
+
+[36m[4/5][0m [1mExecuting exploits...[0m
+      [2mExecution skipped (--no-execute)[0m
+
+[36m[5/5][0m [1mReport generation...[0m
+      Saved: SECURITY_REPORT.json
+
+[1m═════════════════════════════════════════════════════════════[0m
+[1m RESULTS SUMMARY[0m
+[1m═════════════════════════════════════════════════════════════[0m
+ Static patterns:        3 matches (0 logic bugs)
+ Semantic analysis:      5 logic vulnerabilities
+ Exploits generated:     4
+ Exploits confirmed:     0 / 4
+
+ [33mCritical logic bugs INVISIBLE to regex:[0m 5
+ [33mExploits proving real-world impact:[0m     0
+[1m═════════════════════════════════════════════════════════════[0m
+ Total analysis time: 94.4 seconds
+[1m═════════════════════════════════════════════════════════════[0m
+
