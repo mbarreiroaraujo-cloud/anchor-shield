@@ -1,0 +1,40 @@
+Semantic analysis found 4 vulnerabilities:
+
+[Critical] borrow(): Collateral check ignores existing debt
+  Confidence: 0.97
+  Impact: Complete drain of all pool funds. Attacker can extract unlimited SOL with minimal collateral.
+  Attack: 1. Deposit 100 SOL into the pool
+          2. Borrow 100 SOL (passes: deposited 100 >= amount 100)
+          3. Borrow 100 SOL again (passes: deposited 100 >= amount 100, ignores existing 100 SOL debt)
+          4. Repeat until vault is completely drained
+          5. Attacker walks away with all pool liquidity, collateral untouched
+
+[Critical] withdraw(): Withdrawal allows full exit with outstanding borrows
+  Confidence: 0.98
+  Impact: Theft of pool funds. Attacker profits the borrowed amount minus zero risk.
+  Attack: 1. Deposit 100 SOL as collateral
+          2. Borrow 90 SOL from the pool
+          3. Withdraw 100 SOL (passes: deposited 100 >= amount 100)
+          4. User now has 190 SOL (100 withdrawn + 90 borrowed)
+          5. Protocol has -90 SOL of unrecoverable bad debt
+
+[High] liquidate(): Integer overflow in interest calculation
+  Confidence: 0.92
+  Impact: Prevents liquidation of underwater positions. Protocol accumulates bad debt.
+  Attack: 1. Create a large borrow position (e.g., 1,000,000 SOL)
+          2. Ensure pool.total_borrows is also large from other borrowers
+          3. The multiplication borrowed * 500 * total_borrows overflows u64
+          4. Interest wraps to a near-zero value
+          5. Health factor appears healthy
+          6. Underwater position cannot be liquidated
+
+[Medium] liquidate(): Division by zero panic in health factor calculation
+  Confidence: 0.95
+  Impact: Denial of service on the liquidation function.
+  Attack: 1. Call liquidate on any user account that has zero borrows
+          2. The health factor calculation divides by (0 + 0) = 0
+          3. Program panics with arithmetic error
+
+COMPARISON:
+  Regex scanner:    0 logic bugs found (0/4)
+  Semantic analyzer: 4 logic bugs found (4/4)
