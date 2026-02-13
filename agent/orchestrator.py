@@ -4,12 +4,14 @@ Runs the complete anchor-shield analysis pipeline:
   1. Static regex pattern scanning
   2. Semantic LLM analysis for logic vulnerabilities
   3. Exploit proof-of-concept generation
-  4. Exploit execution (simulation)
-  5. Consolidated report generation
+  4. Bankrun exploit execution (compiled SBF binary)
+  5. Python simulation fallback
+  6. Consolidated report generation
 
 Usage:
     python agent/orchestrator.py <path-to-anchor-program>
     python agent/orchestrator.py examples/vulnerable-lending/ --output-dir reports/
+    python agent/orchestrator.py examples/vulnerable-lending/ --binary vuln_lending.so
 """
 
 import argparse
@@ -62,16 +64,20 @@ def _print_summary(report: dict):
     print(f"\n{BOLD}{BAR}{RESET}")
     print(f"{BOLD} RESULTS SUMMARY{RESET}")
     print(f"{BOLD}{BAR}{RESET}")
-    print(f" Static patterns:        {s.get('static_pattern_matches', 0)} matches (0 logic bugs)")
-    print(f" Semantic analysis:      {s.get('logic_bugs_by_llm', 0)} logic vulnerabilities")
-    print(f" Exploits generated:     {s.get('exploits_generated', 0)}")
-    confirmed = s.get("exploits_confirmed", 0)
-    total_exp = s.get("exploits_generated", 0)
-    print(f" Exploits confirmed:     {confirmed} / {total_exp}")
+    print(f" Static patterns:          {s.get('static_pattern_matches', 0)} matches (0 logic bugs)")
+    print(f" Semantic analysis:        {s.get('logic_bugs_by_llm', 0)} logic vulnerabilities")
+    print(f" Exploits generated:       {s.get('exploits_generated', 0)}")
+    bankrun = s.get("bankrun_exploits_confirmed", 0)
+    python = s.get("python_exploits_simulated", 0)
+    if bankrun > 0:
+        print(f" Bankrun confirmed (SBF):  {bankrun}")
+    if python > 0:
+        print(f" Python simulated:         {python}")
     print()
     missed = s.get("logic_bugs_missed_by_regex", 0)
-    print(f" {YELLOW}Critical logic bugs INVISIBLE to regex:{RESET} {missed}")
-    print(f" {YELLOW}Exploits proving real-world impact:{RESET}     {confirmed}")
+    print(f" {YELLOW}Logic bugs INVISIBLE to regex:{RESET}  {missed}")
+    if bankrun > 0:
+        print(f" {YELLOW}Exploits on compiled binary:{RESET}   {bankrun}")
     print(f"{BOLD}{BAR}{RESET}")
     elapsed = report.get("meta", {}).get("analysis_time_seconds", 0)
     print(f" Total analysis time: {elapsed:.1f} seconds")
@@ -169,8 +175,35 @@ class SecurityOrchestrator:
             with open(filepath, "w") as ef:
                 ef.write(exploit.code)
 
-        # Phase 4: Exploit execution
-        _print_phase(4, 5, "Executing exploits...")
+        # Phase 4: Bankrun exploit execution (if binary available)
+        bankrun_results = []
+        bankrun_dir = os.path.join(_PROJECT_ROOT, "exploits")
+        has_bankrun = self._has_bankrun(bankrun_dir)
+        binary_path = self._find_binary(target_path)
+
+        if execute_exploits and has_bankrun and binary_path:
+            _print_phase(4, 6, f"Executing bankrun exploits (compiled SBF binary)...")
+            bankrun_exploits = self._find_bankrun_exploits(bankrun_dir)
+            for bx in bankrun_exploits:
+                result = self._execute_bankrun(bx, bankrun_dir)
+                bankrun_results.append(result)
+                status_icon = {
+                    "CONFIRMED": f"{GREEN}CONFIRMED{RESET}",
+                    "FAILED": f"{RED}FAILED{RESET}",
+                }.get(result["status"], result["status"])
+                short_title = result.get("title", os.path.basename(bx))[:42]
+                print(f"      {short_title:<44} {status_icon}")
+            print()
+        elif execute_exploits:
+            _print_phase(4, 6, "Bankrun exploits...")
+            if not has_bankrun:
+                print(f"      {DIM}solana-bankrun not available — skipping{RESET}")
+            elif not binary_path:
+                print(f"      {DIM}No compiled .so binary found — skipping{RESET}")
+            print()
+
+        # Phase 5: Python simulation execution
+        _print_phase(5, 6, "Executing Python simulations...")
         execution_results = []
         if execute_exploits and exploits:
             for exploit in exploits:
@@ -191,13 +224,15 @@ class SecurityOrchestrator:
             print(f"      {DIM}Execution skipped (--no-execute){RESET}")
         print()
 
-        # Phase 5: Report generation
-        _print_phase(5, 5, "Report generation...")
+        # Phase 6: Report generation
+        _print_phase(6, 6, "Report generation...")
 
         # Count confirmed/simulated
-        confirmed_count = sum(
+        bankrun_confirmed = sum(1 for r in bankrun_results if r["status"] == "CONFIRMED")
+        python_simulated = sum(
             1 for r in execution_results if r["status"] in ("CONFIRMED", "SIMULATED")
         )
+        confirmed_count = bankrun_confirmed + python_simulated
 
         elapsed = time.time() - start_time
 
@@ -223,7 +258,17 @@ class SecurityOrchestrator:
                 "findings_count": len(all_semantic_findings),
                 "findings": [f.to_dict() for f in all_semantic_findings],
             },
-            "exploits": [
+            "bankrun_exploits": [
+                {
+                    "file": os.path.basename(r.get("file", "")),
+                    "title": r.get("title", ""),
+                    "status": r["status"],
+                    "execution_mode": "bankrun",
+                    "output_snippet": r.get("output", "")[:500],
+                }
+                for r in bankrun_results
+            ],
+            "python_exploits": [
                 {
                     "finding_id": exploit.finding_id,
                     "title": exploit.title,
@@ -232,6 +277,7 @@ class SecurityOrchestrator:
                         exploit.status,
                     ),
                     "language": exploit.language,
+                    "execution_mode": "python_simulation",
                     "code_file": f"exploits/exploit_{exploit.finding_id.lower().replace('-', '_')}.py",
                 }
                 for exploit in exploits
@@ -240,6 +286,8 @@ class SecurityOrchestrator:
                 "static_pattern_matches": static_findings_count,
                 "logic_bugs_by_llm": len(all_semantic_findings),
                 "exploits_generated": len(exploits),
+                "bankrun_exploits_confirmed": bankrun_confirmed,
+                "python_exploits_simulated": python_simulated,
                 "exploits_confirmed": confirmed_count,
                 "logic_bugs_missed_by_regex": len(all_semantic_findings),
             },
@@ -328,6 +376,86 @@ class SecurityOrchestrator:
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return False
 
+    @staticmethod
+    def _has_bankrun(exploit_dir: str) -> bool:
+        """Check if solana-bankrun is available in exploits dir."""
+        bankrun_path = os.path.join(exploit_dir, "node_modules", "solana-bankrun")
+        return os.path.isdir(bankrun_path)
+
+    @staticmethod
+    def _find_binary(target_path: str) -> Optional[str]:
+        """Find a compiled .so binary for the target program."""
+        # Check target_path/target/deploy/*.so
+        deploy_dir = os.path.join(target_path, "target", "deploy")
+        if os.path.isdir(deploy_dir):
+            for f in os.listdir(deploy_dir):
+                if f.endswith(".so"):
+                    return os.path.join(deploy_dir, f)
+
+        # Check project exploits dir
+        exploit_so = os.path.join(_PROJECT_ROOT, "exploits", "vuln_lending.so")
+        if os.path.exists(exploit_so):
+            return exploit_so
+
+        # Check project root
+        root_so = os.path.join(_PROJECT_ROOT, "vuln_lending.so")
+        if os.path.exists(root_so):
+            return root_so
+
+        return None
+
+    @staticmethod
+    def _find_bankrun_exploits(exploit_dir: str) -> List[str]:
+        """Find bankrun exploit TypeScript files."""
+        exploits = []
+        for f in sorted(os.listdir(exploit_dir)):
+            if f.startswith("bankrun_exploit_") and f.endswith(".ts"):
+                exploits.append(os.path.join(exploit_dir, f))
+        return exploits
+
+    @staticmethod
+    def _execute_bankrun(exploit_path: str, cwd: str) -> dict:
+        """Execute a bankrun TypeScript exploit against the compiled SBF binary."""
+        filename = os.path.basename(exploit_path)
+        result = {
+            "file": exploit_path,
+            "title": filename.replace("bankrun_exploit_", "").replace(".ts", "").replace("_", " ").title(),
+            "status": "FAILED",
+            "output": "",
+        }
+
+        try:
+            proc = subprocess.run(
+                ["npx", "ts-node", exploit_path],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=cwd,
+                env={**os.environ, "PATH": os.environ.get("PATH", "")},
+            )
+            output = proc.stdout + proc.stderr
+            # Filter out debug log lines
+            filtered = "\n".join(
+                line for line in output.split("\n")
+                if not line.startswith("[2026") and "DEBUG" not in line
+            )
+            result["output"] = filtered
+
+            if "EXPLOIT CONFIRMED" in output or "CONFIRMED" in output:
+                result["status"] = "CONFIRMED"
+            elif "CRASHED" in output or "PANICKED" in output or "panicked" in output:
+                result["status"] = "CONFIRMED"
+            elif proc.returncode == 0:
+                result["status"] = "EXECUTED"
+            else:
+                result["status"] = "FAILED"
+        except subprocess.TimeoutExpired:
+            result["output"] = "Execution timed out (60s)"
+        except Exception as e:
+            result["output"] = str(e)
+
+        return result
+
 
 def main():
     """CLI entry point for the orchestrator."""
@@ -357,6 +485,10 @@ def main():
     parser.add_argument(
         "--output-dir",
         help="Directory for output files (default: auto)",
+    )
+    parser.add_argument(
+        "--binary",
+        help="Path to compiled .so binary for bankrun execution",
     )
 
     args = parser.parse_args()
