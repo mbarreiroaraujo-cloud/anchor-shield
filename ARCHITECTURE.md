@@ -2,130 +2,200 @@
 
 ## Overview
 
-anchor-shield is a static analysis tool that detects known vulnerability patterns in Solana Anchor programs. It operates at the source code level, matching structural patterns in Rust code that indicate framework-level security issues.
+anchor-shield is a three-layer security analysis tool for Solana Anchor programs. It combines static pattern matching, semantic LLM analysis, and adversarial exploit synthesis into an autonomous security pipeline.
 
 ## System Components
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    User Interface                     │
-│  ┌──────────┐  ┌───────────────┐  ┌──────────────┐ │
-│  │   CLI    │  │  Web Dashboard │  │  JSON/HTML   │ │
-│  │ (click)  │  │  (React+Vite) │  │   Reports    │ │
-│  └────┬─────┘  └──────┬────────┘  └──────┬───────┘ │
-│       │               │                   │         │
-├───────┼───────────────┼───────────────────┼─────────┤
-│       ▼               ▼                   ▼         │
-│  ┌────────────────────────────────────────────┐     │
-│  │            Scanner Engine (Python)          │     │
-│  │  ┌──────────────────────────────────────┐  │     │
-│  │  │     Pattern Matcher (6 patterns)      │  │     │
-│  │  │  ┌──────┐┌──────┐┌──────┐           │  │     │
-│  │  │  │ 001  ││ 002  ││ 003  │  ...      │  │     │
-│  │  │  └──────┘└──────┘└──────┘           │  │     │
-│  │  └──────────────────────────────────────┘  │     │
-│  │  ┌──────────────┐  ┌──────────────────┐   │     │
-│  │  │ GitHub Client │  │  Solana Client   │   │     │
-│  │  │ (fetch repos) │  │ (RPC queries)    │   │     │
-│  │  └──────────────┘  └──────────────────┘   │     │
-│  └────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      User Interface                           │
+│  ┌──────────┐  ┌───────────────┐  ┌──────────────────────┐  │
+│  │   CLI    │  │  Web Dashboard │  │  SECURITY_REPORT.json│  │
+│  │(argparse)│  │  (React+Vite) │  │   (structured data)  │  │
+│  └────┬─────┘  └──────┬────────┘  └──────────┬───────────┘  │
+│       │               │                       │              │
+├───────┼───────────────┼───────────────────────┼──────────────┤
+│       ▼               ▼                       ▼              │
+│  ┌─────────────────────────────────────────────────────┐     │
+│  │           Orchestrator (agent/orchestrator.py)       │     │
+│  │  Chains all analysis phases into a single pipeline  │     │
+│  └──┬────────────┬────────────────┬────────────────┬───┘     │
+│     │            │                │                │         │
+│     ▼            ▼                ▼                ▼         │
+│  ┌────────┐  ┌──────────┐  ┌──────────────┐  ┌─────────┐   │
+│  │ Static │  │ Semantic │  │   Exploit    │  │ Exploit │   │
+│  │ Scan   │  │ Analyzer │  │  Synthesizer │  │Executor │   │
+│  │(regex) │  │  (LLM)   │  │   (LLM)     │  │(Python) │   │
+│  └────────┘  └──────────┘  └──────────────┘  └─────────┘   │
+│                                                              │
+│  scanner/     semantic/       adversarial/     subprocess    │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## Scanner Engine
+## Data Flow
 
-### Pattern Detection Approach
+```
+Input: Path to Anchor program (.rs files)
+  │
+  ├─► Phase 1: Static Pattern Scan
+  │     scanner.engine.AnchorShieldEngine
+  │     Input:  .rs file content
+  │     Output: List[Finding] — regex pattern matches
+  │     No external calls
+  │
+  ├─► Phase 2: Semantic LLM Analysis
+  │     semantic.analyzer.SemanticAnalyzer
+  │     Input:  .rs source code + security audit prompt
+  │     Output: List[SemanticFinding] — logic vulnerabilities
+  │     API:    Claude API (claude-sonnet-4-20250514)
+  │     Fallback: Pre-validated results when API unavailable
+  │
+  ├─► Phase 3: Exploit Generation
+  │     adversarial.synthesizer.ExploitSynthesizer
+  │     Input:  SemanticFinding + source code
+  │     Output: List[ExploitCode] — Python simulation scripts
+  │     API:    Claude API (optional)
+  │     Fallback: Pre-built exploit simulations
+  │
+  └─► Phase 4: Exploit Execution
+        subprocess.run(python3 exploit_*.py)
+        Input:  Generated .py files
+        Output: SIMULATED / CONFIRMED / FAILED status
+        No external calls
 
-The scanner uses a two-phase approach for each file:
-
-1. **Structure Extraction:** Parse `#[derive(Accounts)]` structs using brace-counting (not regex for struct bodies, avoiding catastrophic backtracking). Extract fields with their multi-line attributes.
-
-2. **Pattern Matching:** Run each detection pattern against the extracted fields. Patterns check attribute combinations, field types, and cross-field relationships.
-
-### Multi-line Attribute Handling
-
-Anchor attributes often span multiple lines:
-```rust
-#[account(
-    init_if_needed,
-    payer = payer,
-    token::mint = mint,
-)]
+Output: SECURITY_REPORT.json with all findings + exploit results
 ```
 
-The parser tracks parenthesis depth to correctly associate multi-line attributes with their fields, then joins them into a single string for pattern matching.
+## Module Details
 
-### False Positive Mitigation
+### scanner/ — Static Pattern Engine (v1)
 
-Each pattern implements safe-pattern filters:
+The original regex-based scanner. Detects 6 known Anchor vulnerability patterns:
 
-| Pattern | Safe Pattern (suppressed) |
-|---------|--------------------------|
-| ANCHOR-001 | `constraint = account.delegate.is_none()` present |
-| ANCHOR-002 | Different base types on init_if_needed vs mut |
-| ANCHOR-003 | Payer field typed as `Signer<'info>` |
-| ANCHOR-004 | `/// CHECK:` comment, `owner =` constraint |
-| ANCHOR-005 | Only `close` without `init_if_needed` on same type |
-| ANCHOR-006 | `Account<T>`, `Signer`, `Program` types; CHECK comments |
+| Pattern | ID | Severity |
+|---------|-----|----------|
+| init_if_needed Incomplete Field Validation | ANCHOR-001 | High |
+| Duplicate Mutable Account Bypass | ANCHOR-002 | Medium |
+| Realloc Payer Missing Signer | ANCHOR-003 | Medium |
+| Account Type Cosplay | ANCHOR-004 | Medium |
+| Close + Reinit Lifecycle Attack | ANCHOR-005 | Medium |
+| Missing Owner Validation | ANCHOR-006 | High |
 
-## Detection Patterns
+Key files:
+- `engine.py` — Core `AnchorShieldEngine` class, file discovery, scoring
+- `patterns/base.py` — `Finding` dataclass, `VulnerabilityPattern` base class
+- `patterns/*.py` — Individual pattern implementations
 
-### ANCHOR-001: init_if_needed Incomplete Field Validation
-- **Source:** Anchor's `constraints.rs` — `generate_constraint_init_group`
-- **Issue:** `from_account_info_unchecked` validates only mint/owner/token_program
-- **Detection:** Find `init_if_needed` + `token::` without delegate/close_authority constraints
+### semantic/ — LLM Semantic Analyzer (v2)
 
-### ANCHOR-002: Duplicate Mutable Account Bypass
-- **Source:** Anchor's `try_accounts.rs` — `generate_duplicate_mutable_checks`
-- **Issue:** `constraints.init.is_none()` filter excludes init_if_needed from duplicate check
-- **Detection:** Find init_if_needed coexisting with mut of same Account<T> type
+Sends source code to the Claude API with a specialized security prompt.
 
-### ANCHOR-003: Realloc Payer Signer Gap
-- **Source:** Anchor's `constraints.rs` — `generate_constraint_realloc`
-- **Issue:** Lamport transfer via `borrow_mut()` bypasses CPI signer checks
-- **Detection:** Find `realloc::payer = X` where X is not typed as `Signer<'info>`
+Key files:
+- `analyzer.py` — `SemanticAnalyzer` class with API calls, response parsing, fallback
+- `prompts.py` — `SECURITY_AUDITOR_SYSTEM_PROMPT` constant
 
-### ANCHOR-004: Account Type Cosplay
-- **Issue:** Raw `AccountInfo` skips discriminator and owner verification
-- **Detection:** Find `AccountInfo<'info>` fields without owner constraints or CHECK docs
+The system prompt instructs the LLM to:
+1. Map all state-modifying instructions
+2. Trace cross-instruction dependencies
+3. Check arithmetic for overflow/underflow
+4. Verify economic invariants
+5. Return structured JSON findings
 
-### ANCHOR-005: Close + Reinit Lifecycle Attack
-- **Issue:** Closed accounts can be revived via init_if_needed
-- **Detection:** Find same account type used in both close and init_if_needed constraints
+### adversarial/ — Exploit Synthesizer (v2)
 
-### ANCHOR-006: Missing Owner Validation
-- **Issue:** Unverified accounts can be substituted with attacker-controlled data
-- **Detection:** Find AccountInfo/UncheckedAccount without owner checks, signer constraints, or CHECK docs
+Generates proof-of-concept exploit simulations.
 
-## Solana Integration
+Key files:
+- `synthesizer.py` — `ExploitSynthesizer` class, `ExploitCode` dataclass
 
-### Program Metadata (RPC)
-- `getAccountInfo` to check program existence, owner, executable status
-- BPF Upgradeable Loader detection for upgrade authority analysis
-- PDA derivation for Anchor IDL account address
+Each generated exploit:
+- Models on-chain state as Python dataclasses
+- Implements vulnerable instruction logic
+- Executes attack with state transitions
+- Asserts exploit outcomes
 
-### On-Chain Risk Assessment
-Risk score computed from:
-- Is program upgradeable? (+2)
-- Is account executable? (not = +5)
-- IDL found on-chain? (no = +1)
+### agent/ — Autonomous Orchestrator (v2)
 
-## Web Dashboard
+Single-command entry point that chains all phases.
 
-The dashboard runs entirely in the browser:
-1. User enters GitHub repo URL
-2. React app fetches file tree via GitHub API
-3. Fetches raw content for each `.rs` file
-4. Runs JavaScript scanner patterns against content
-5. Displays results with severity indicators
+Key files:
+- `orchestrator.py` — `SecurityOrchestrator` class, CLI interface
 
-No backend required — deployable as a static site.
+### dashboard/ — Web UI
 
-## Adding New Patterns
+React + Tailwind CSS single-page application.
 
-1. Create `scanner/patterns/new_pattern.py` extending `VulnerabilityPattern`
-2. Implement `scan(file_path, content) -> list[Finding]`
-3. Add safe-pattern filters to avoid false positives
+Tabs: Overview | Semantic Analysis | Exploits | Static Scanner
+
+## API Interaction
+
+The tool makes API calls in two places:
+
+1. **Semantic analysis** (`semantic/analyzer.py`):
+   - Endpoint: `POST https://api.anthropic.com/v1/messages`
+   - Model: `claude-sonnet-4-20250514`
+   - Max tokens: 4096
+   - Retry: 3 attempts with exponential backoff
+
+2. **Exploit generation** (`adversarial/synthesizer.py`):
+   - Same endpoint and model
+   - Separate system prompt for exploit code generation
+   - Retry: 3 attempts with exponential backoff
+
+Both fall back to pre-validated/pre-built data when the API is unavailable.
+
+## Adding New Patterns (Static Scanner)
+
+1. Create a new file in `scanner/patterns/` (e.g., `my_pattern.py`)
+2. Subclass `VulnerabilityPattern` from `base.py`
+3. Implement the `scan()` method returning `List[Finding]`
 4. Register in `scanner/patterns/__init__.py`
-5. Add tests in `tests/test_scanner.py`
-6. Mirror detection logic in `dashboard/src/scanner.js`
+
+## Tuning the Semantic Prompt
+
+The prompt in `semantic/prompts.py` can be adapted for different program types:
+
+- **DeFi programs**: Emphasize collateral ratios, liquidity checks, price manipulation
+- **Token programs**: Focus on supply conservation, mint authority, burn validation
+- **Governance**: Check voting weight manipulation, timelock bypass, quorum gaming
+
+The prompt structure (methodology -> focus areas -> output format) should be preserved.
+
+## Validation Methodology
+
+Real-world validation follows a three-stage process:
+
+### Stage 1: Target Acquisition
+- Select programs from diverse domains (DEX, staking, governance, token operations)
+- Mix of audited production protocols and framework examples
+- For multi-file protocols, concatenate key instruction files with separators
+
+### Stage 2: Automated Analysis
+- Run the full orchestrator pipeline against each target
+- Record both static and semantic findings
+- Generate exploit code where applicable
+
+### Stage 3: Manual Evaluation
+Each semantic finding is classified using epistemic rigor:
+
+| Classification | Definition |
+|----------------|------------|
+| **TRUE POSITIVE** | Verified by reading code — attack is plausible |
+| **LIKELY TRUE POSITIVE** | Code supports the claim but context is unclear |
+| **INFORMATIONAL** | Valid observation, but not exploitable in practice |
+| **FALSE POSITIVE** | LLM misunderstood the code or missed safety checks |
+
+For each finding, evaluate:
+1. Is the LLM's code description accurate?
+2. Does the control flow actually work as described?
+3. Could there be safety checks elsewhere that prevent exploitation?
+4. Is the attack scenario plausible in the Solana runtime environment?
+
+Results are documented in [RESEARCH_REPORT.md](RESEARCH_REPORT.md).
+
+## Dependencies
+
+- **Python 3.9+**: Core analysis pipeline
+- **Node.js 18+**: Dashboard build (Vite + React)
+- **No compiled dependencies**: The tool uses only Python stdlib for API calls (urllib)
+- **Optional**: Anthropic API key for live LLM analysis

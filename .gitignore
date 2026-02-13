@@ -1,3 +1,10 @@
-*.pyc\n__pycache__/\nnode_modules/\n.pytest_cache/\ndist/\nbuild/\n*.egg-info/\n.env\n.venv/
 __pycache__/
 *.pyc
+node_modules/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+.env
+.venv/
+target/

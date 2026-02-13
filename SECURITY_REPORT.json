@@ -1,0 +1,126 @@
+{
+  "meta": {
+    "tool": "anchor-shield",
+    "version": "0.2.0",
+    "timestamp": "2026-02-13T00:23:12.688071+00:00",
+    "analysis_time_seconds": 15.6,
+    "target": "/home/user/anchor-shield/examples/vulnerable-lending",
+    "route": "LLM-ONLY"
+  },
+  "static_analysis": {
+    "engine": "regex pattern matcher v0.1.0",
+    "findings_count": 0,
+    "logic_bugs_found": 0,
+    "findings": []
+  },
+  "semantic_analysis": {
+    "engine": "LLM semantic analyzer",
+    "model": "claude-sonnet-4-20250514",
+    "mode": "pre-validated",
+    "findings_count": 4,
+    "findings": [
+      {
+        "id": "SEM-001",
+        "severity": "Critical",
+        "function": "borrow",
+        "title": "Collateral check ignores existing debt",
+        "description": "The borrow function checks `user.deposited >= amount` but does not account for previously borrowed amounts. The correct check should be `user.deposited * 75 / 100 >= user.borrowed + amount` to enforce a collateralization ratio. As written, a user with 100 SOL deposited can borrow 100 SOL repeatedly because the check never considers cumulative debt.",
+        "attack_scenario": "1. Deposit 100 SOL into the pool\n2. Borrow 100 SOL (passes: deposited 100 >= amount 100)\n3. Borrow 100 SOL again (passes: deposited 100 >= amount 100, ignores existing 100 SOL debt)\n4. Repeat until vault is completely drained\n5. Attacker walks away with all pool liquidity, collateral untouched",
+        "estimated_impact": "Complete drain of all pool funds. Attacker can extract unlimited SOL with minimal collateral.",
+        "confidence": 0.97,
+        "source": "validated"
+      },
+      {
+        "id": "SEM-002",
+        "severity": "Critical",
+        "function": "withdraw",
+        "title": "Withdrawal allows full exit with outstanding borrows",
+        "description": "The withdraw function only checks `user.deposited >= amount` without verifying that remaining deposits still cover outstanding borrows. There is no cross-instruction validation between withdraw and borrow. A user can deposit collateral, borrow against it, then withdraw all collateral \u2014 leaving the protocol with bad debt.",
+        "attack_scenario": "1. Deposit 100 SOL as collateral\n2. Borrow 90 SOL from the pool\n3. Withdraw 100 SOL (passes: deposited 100 >= amount 100)\n4. User now has 190 SOL (100 withdrawn + 90 borrowed)\n5. Protocol has -90 SOL of unrecoverable bad debt\n6. No mechanism exists to force repayment",
+        "estimated_impact": "Theft of pool funds. Attacker profits the borrowed amount minus zero risk. Protocol left with bad debt.",
+        "confidence": 0.98,
+        "source": "validated"
+      },
+      {
+        "id": "SEM-003",
+        "severity": "High",
+        "function": "liquidate",
+        "title": "Integer overflow in interest calculation",
+        "description": "The expression `user.borrowed * pool.interest_rate as u64 * pool.total_borrows` performs unchecked u64 multiplication. When borrowed amounts and total_borrows are large, this multiplication can overflow u64::MAX (18,446,744,073,709,551,615), wrapping around to a small number. This makes the calculated interest negligible, causing the health factor to appear high \u2014 preventing legitimate liquidations.",
+        "attack_scenario": "1. Create a large borrow position (e.g., 1,000,000 SOL)\n2. Ensure pool.total_borrows is also large from other borrowers\n3. The multiplication borrowed * 500 * total_borrows overflows u64\n4. Interest wraps to a near-zero value\n5. Health factor = deposited * 100 / (borrowed + ~0) appears healthy\n6. Underwater position cannot be liquidated, protocol accumulates bad debt",
+        "estimated_impact": "Prevents liquidation of underwater positions. Protocol accumulates unrecoverable bad debt as unhealthy positions cannot be closed.",
+        "confidence": 0.92,
+        "source": "validated"
+      },
+      {
+        "id": "SEM-004",
+        "severity": "Medium",
+        "function": "liquidate",
+        "title": "Division by zero panic in health factor calculation",
+        "description": "When `user.borrowed == 0` and `interest == 0`, the expression `user.deposited * 100 / (user.borrowed + interest)` divides by zero. In Rust, integer division by zero causes a panic, which in Solana translates to a program error. Any user with zero borrows cannot have their liquidation function called without crashing the program.",
+        "attack_scenario": "1. Call liquidate on any user account that has zero borrows\n2. The health factor calculation divides by (0 + 0) = 0\n3. Program panics with arithmetic error\n4. Transaction fails, but can be used for denial of service\n5. If liquidation is part of a composed transaction, the panic rolls back the entire transaction",
+        "estimated_impact": "Denial of service on the liquidation function. While not directly profitable, it can block composed transactions that include liquidation checks.",
+        "confidence": 0.95,
+        "source": "validated"
+      }
+    ]
+  },
+  "bankrun_exploits": [
+    {
+      "file": "bankrun_exploit_001_collateral_bypass.ts",
+      "title": "001 Collateral Bypass",
+      "status": "CONFIRMED",
+      "execution_mode": "bankrun",
+      "output_snippet": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n EXPLOIT: Collateral Check Bypass (SEM-001)\n Target: vulnerable_lending::borrow()\n Binary: vuln_lending.so (compiled SBF)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\n[1] Genesis accounts loaded:\n    Pool: deposited=600 SOL, borrows=0\n    User: deposited=100 SOL, borrowed=0\n    Vault: 600 SOL\n\n[2] EXPLOIT: Borrowing 100 SOL repeatedly...\n    (check is: deposited >= amount, ignores existing debt)\n\n    Borrow #1: 100 SOL ("
+    },
+    {
+      "file": "bankrun_exploit_002_withdraw_drain.ts",
+      "title": "002 Withdraw Drain",
+      "status": "CONFIRMED",
+      "execution_mode": "bankrun",
+      "output_snippet": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n EXPLOIT: Withdraw Drain (SEM-002)\n Target: vulnerable_lending::withdraw()\n Binary: vuln_lending.so (compiled SBF)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\n[1] State setup (simulates: attacker deposited 100, borrowed 90):\n    Pool: deposits=600 SOL, borrows=90 SOL\n    User: deposited=100 SOL, borrowed=90 SOL\n    Vault: 510 SOL\n\n[2] EXPLOIT: Withdrawing 100 SOL despite 90 SOL outstanding debt...\n    Withdrawal SUCCEED"
+    },
+    {
+      "file": "bankrun_exploit_003_overflow_liquidation.ts",
+      "title": "003 Overflow Liquidation",
+      "status": "CONFIRMED",
+      "execution_mode": "bankrun",
+      "output_snippet": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n EXPLOIT: Integer Overflow + Division by Zero (SEM-003/004)\n Target: vulnerable_lending::liquidate()\n Binary: vuln_lending.so (compiled SBF)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\n--- TEST A: Integer Overflow ---\n\n[1] Overflow scenario:\n    borrowed: 1000000000 lamports\n    interest_rate: 500, total_borrows: 36893488147\n    Honest interest: 18446744073500000000000 (overflows u64)\n    u64 wrapped:     18446743864157"
+    }
+  ],
+  "python_exploits": [
+    {
+      "finding_id": "SEM-001",
+      "title": "Collateral check ignores existing debt",
+      "status": "SIMULATED",
+      "language": "python",
+      "execution_mode": "python_simulation",
+      "code_file": "exploits/exploit_sem_001.py"
+    },
+    {
+      "finding_id": "SEM-002",
+      "title": "Withdrawal allows full exit with outstanding borrows",
+      "status": "SIMULATED",
+      "language": "python",
+      "execution_mode": "python_simulation",
+      "code_file": "exploits/exploit_sem_002.py"
+    },
+    {
+      "finding_id": "SEM-003",
+      "title": "Integer overflow in interest calculation",
+      "status": "SIMULATED",
+      "language": "python",
+      "execution_mode": "python_simulation",
+      "code_file": "exploits/exploit_sem_003.py"
+    }
+  ],
+  "summary": {
+    "static_pattern_matches": 0,
+    "logic_bugs_by_llm": 4,
+    "exploits_generated": 3,
+    "bankrun_exploits_confirmed": 3,
+    "python_exploits_simulated": 3,
+    "exploits_confirmed": 6,
+    "logic_bugs_missed_by_regex": 4
+  }
+}

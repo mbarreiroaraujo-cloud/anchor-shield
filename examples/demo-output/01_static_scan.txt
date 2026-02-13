@@ -1,0 +1,16 @@
+Static scan results:
+  Files scanned: 1
+  Pattern matches: 0
+  Security score: A
+
+  (No pattern-based findings detected)
+
+CRITICAL: None of the 4 logic bugs (collateral bypass, withdraw drain,
+integer overflow, division by zero) appear in these results.
+The regex scanner is BLIND to logic vulnerabilities.
+
+Expected logic bugs NOT detected by regex:
+  1. [Critical] borrow(): Collateral check ignores existing borrows
+  2. [Critical] withdraw(): Full withdrawal with outstanding borrows
+  3. [High] liquidate(): Integer overflow in interest calculation
+  4. [Medium] liquidate(): Division by zero in health computation
