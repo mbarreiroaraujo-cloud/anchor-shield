@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("VuLn1111111111111111111111111111111111111111");
+declare_id!("BJYyF44xEVBfZDQwRdQ2d2ErjWoESsgaXHVcSw7MAv8K");
 
 #[program]
 pub mod vulnerable_lending {
